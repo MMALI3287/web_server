@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.1.0] - 2025-06-22
 
 ### Added
+
 - Comprehensive README.md with installation and usage instructions
 - CONTRIBUTING.md with development guidelines
 - GitHub Actions CI/CD workflow
@@ -16,11 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Proper package.json with repository information
 
 ### Fixed
+
 - Path-to-regexp routing errors causing server startup failures
 - Replaced problematic wildcard routes with middleware approach
 - Improved error handling and logging
 
 ### Changed
+
 - Updated project structure for GitHub readiness
 - Enhanced documentation and code comments
 - Improved .gitignore with comprehensive exclusions
@@ -28,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.0.0] - 2025-06-22
 
 ### Added
+
 - Folder navigation through web interface
 - Breadcrumb navigation for easy directory traversal
 - Support for multi-level directory structures
@@ -38,12 +42,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Test folder and files for demonstration
 
 ### Changed
+
 - Refactored main route to support folder browsing
 - Updated HTML generation for folder navigation
 - Improved security with path validation for directories
 - Enhanced user interface with modern styling
 
 ### Security
+
 - Path traversal protection for directory navigation
 - Secure folder access validation
 - Maintained all existing file security measures
@@ -51,6 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2025-06-21
 
 ### Added
+
 - Initial secure file server implementation
 - Express.js web server with security middleware
 - File download functionality with validation
@@ -67,6 +74,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Test endpoint for file access verification
 
 ### Security
+
 - Comprehensive path sanitization
 - File type restrictions
 - Directory traversal prevention
