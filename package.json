@@ -17,16 +17,16 @@
     "web-interface",
     "nodejs"
   ],
-  "author": "Your Name <your.email@example.com>",
+  "author": "Musaddique Ali <erfanali3287@gmail.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/secure-file-server.git"
+    "url": "https://github.com/MMALI3287/secure-file-server.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/secure-file-server/issues"
+    "url": "https://github.com/MMALI3287/secure-file-server/issues"
   },
-  "homepage": "https://github.com/yourusername/secure-file-server#readme",
+  "homepage": "https://github.com/MMALI3287/secure-file-server#readme",
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^5.1.0",
@@ -35,6 +35,7 @@
     "path-exists": "^5.0.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.10"
+    "nodemon": "^3.1.10",
+    "webpack-cli": "6.0.1"
   }
 }

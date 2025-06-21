@@ -42,7 +42,7 @@ A secure, feature-rich Node.js/Express file server that provides web-based folde
 1. **Clone the repository:**
 
    ```bash
-   git clone <your-repo-url>
+   git clone https://github.com/MMALI3287/web_server.git
    cd web_server
    ```
 
