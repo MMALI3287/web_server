@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2025-06-29
+
+### Added
+
+- **File Upload System**: Complete file upload functionality with multer
+- **Dual Storage Architecture**: Separated public files (client-accessible) and server uploads
+- **Upload Progress Tracking**: Dual progress bars showing current file and overall upload status
+- **Drag & Drop Interface**: Modern file upload interface with drag and drop support
+- **File Validation**: Client-side and server-side file validation
+- **Upload Rate Limiting**: Dedicated rate limiting for upload endpoints (10 uploads per 15 minutes)
+- **Automatic File Conflict Resolution**: Automatic renaming of duplicate files
+- **Upload State Management**: Prevention of multiple simultaneous uploads
+- **File Size Limits**: 100MB maximum file size with validation
+- **Enhanced Error Handling**: Comprehensive error handling for upload operations
+- **Upload Cancellation**: Ability to cancel ongoing uploads
+- **Auto Page Refresh**: Automatic page refresh after successful uploads
+
+### Changed
+
+- **Storage Structure**: Moved existing files from `uploads/` to `public/` directory
+- **Server Routing**: Updated all file serving routes to use `public/` directory
+- **UI Interface**: Enhanced upload modal with dual progress bars and status indicators
+- **Security Headers**: Updated security banner to reflect upload processing
+- **File Access**: Client downloads now serve from `public/` directory only
+- **Test Endpoint**: Updated test download to reference files in public directory
+
+### Security
+
+- **Upload Validation**: Multi-layer file type and size validation
+- **Path Security**: Upload path sanitization and traversal protection
+- **Rate Limited Uploads**: Separate rate limiting for upload operations
+- **Server-Side Storage**: Uploaded files stored server-side for review
+- **File Type Restrictions**: Strict file type validation on uploads
+- **Size Limits**: 100MB file size limit enforcement
+
+### Fixed
+
+- **Upload Response Handling**: Improved upload response processing and user feedback
+- **Progress Bar Accuracy**: Enhanced progress tracking with real-time updates
+- **File Selection Feedback**: Clear indication of selected files before upload
+- **Upload State Persistence**: Proper cleanup of upload state on completion/error
+- **Error Message Display**: Better error message formatting and display duration
+
 ## [2.1.0] - 2025-06-22
 
 ### Added

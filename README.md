@@ -1,6 +1,6 @@
-# 🗂️ Secure File Server with Folder Navigation
+# 🗂️ Secure File Server with Upload and Download Capabilities
 
-A secure, feature-rich Node.js/Express file server that provides web-based folder navigation and file downloads with comprehensive security measures.
+A secure, feature-rich Node.js/Express file server that provides web-based folder navigation, file downloads, and secure file uploads with comprehensive security measures and dual storage architecture.
 
 ## ✨ Features
 
@@ -8,27 +8,32 @@ A secure, feature-rich Node.js/Express file server that provides web-based folde
 
 - **Path Traversal Protection** - Prevents `../` directory traversal attacks
 - **File Type Validation** - Only allows whitelisted file extensions
-- **Rate Limiting** - Configurable request and download limits
+- **Rate Limiting** - Configurable request, download, and upload limits
 - **CORS Protection** - Configurable cross-origin resource sharing
 - **Security Headers** - Helmet.js integration for HTTP security headers
 - **Input Sanitization** - All file paths and names are sanitized
 - **Secure File Serving** - Validates file existence and permissions
+- **Dual Storage Architecture** - Separates public files from server-side uploads
 
 ### 🌐 Web Interface
 
 - **Folder Navigation** - Browse directories through a clean web UI
 - **Breadcrumb Navigation** - Easy navigation with clickable breadcrumbs
-- **File Download** - Secure file downloads from any subdirectory
+- **File Download** - Secure file downloads from public storage
+- **File Upload** - Secure file uploads with dual progress tracking
 - **Responsive Design** - Works on desktop and mobile devices
 - **File Type Icons** - Visual file type indicators
 - **File Information** - Displays file size, type, and modification date
+- **Drag & Drop Upload** - Modern file upload interface
 
 ### 📁 File Management
 
 - **Multi-level Directories** - Navigate through nested folder structures
 - **File Statistics** - Shows total files, folders, and combined size
 - **Empty Directory Handling** - Graceful handling of empty directories
-- **Large File Support** - Handles files of various sizes efficiently
+- **Large File Support** - Handles files up to 100MB efficiently
+- **Automatic File Renaming** - Prevents conflicts with existing files
+- **Real-time Upload Progress** - Dual progress bars for detailed feedback
 
 ## 🚀 Quick Start
 
@@ -52,10 +57,11 @@ A secure, feature-rich Node.js/Express file server that provides web-based folde
    npm install
    ```
 
-3. **Create uploads directory:**
+3. **Create storage directories:**
 
    ```bash
    mkdir uploads
+   mkdir public
    ```
 
 4. **Start the server:**
@@ -74,7 +80,8 @@ A secure, feature-rich Node.js/Express file server that provides web-based folde
   "express": "^4.x.x",
   "helmet": "^7.x.x",
   "express-rate-limit": "^6.x.x",
-  "cors": "^2.x.x"
+  "cors": "^2.x.x",
+  "multer": "^1.x.x"
 }
 ```
 
@@ -104,6 +111,18 @@ The server supports the following file extensions by default:
 
 - **General requests:** 100 requests per 15 minutes per IP
 - **Downloads:** 20 downloads per 15 minutes per IP
+- **Uploads:** 10 uploads per 15 minutes per IP (100MB max file size)
+
+## 🏗️ Architecture
+
+### Dual Storage System
+
+The server implements a dual storage architecture for enhanced security:
+
+- **Public Storage (`/public`)**: Files visible to clients for browsing and downloading
+- **Server Storage (`/uploads`)**: Files uploaded by users, stored server-side for review
+
+This separation ensures that uploaded content doesn't immediately become public and can be reviewed before being moved to the public area.
 
 ## 🛡️ Security Measures
 
@@ -118,6 +137,8 @@ The server supports the following file extensions by default:
 - Only whitelisted file types are accessible
 - File existence and permissions are verified before serving
 - Maximum filename length enforcement (500 characters)
+- Client-side and server-side upload validation
+- Automatic file conflict resolution (renamed if duplicate)
 
 ### HTTP Security
 
@@ -131,20 +152,30 @@ The server supports the following file extensions by default:
 ### GET `/`
 
 - **Description:** Main interface for browsing the root directory
-- **Response:** HTML page with file/folder listing
+- **Response:** HTML page with file/folder listing from public storage
 
 ### GET `/{path}`
 
-- **Description:** Browse any subdirectory
+- **Description:** Browse any subdirectory in public storage
 - **Parameters:** `path` - Relative path to directory
 - **Response:** HTML page with file/folder listing for the specified path
 
 ### GET `/download/{filepath}`
 
-- **Description:** Download a file from any directory
+- **Description:** Download a file from public storage
 - **Parameters:** `filepath` - Relative path to file
 - **Response:** File download with appropriate headers
 - **Rate Limited:** Yes (20 requests per 15 minutes)
+
+### POST `/upload`
+
+- **Description:** Upload a file to server storage
+- **Parameters:**
+  - `file` - File to upload (multipart/form-data)
+  - `uploadPath` - Target directory path (optional)
+- **Response:** JSON with upload status and file information
+- **Rate Limited:** Yes (10 requests per 15 minutes)
+- **File Size Limit:** 100MB
 
 ### GET `/test-download`
 
@@ -159,7 +190,8 @@ The server supports the following file extensions by default:
 web_server/
 ├── server.js          # Main server file
 ├── package.json       # Dependencies and scripts
-├── uploads/           # File storage directory
+├── public/            # Public file storage (client accessible)
+├── uploads/           # Server-side upload storage
 ├── .env              # Environment variables
 ├── .gitignore        # Git ignore rules
 └── README.md         # This file
@@ -192,7 +224,7 @@ const limiter = rateLimit({
 
 1. **HTTP vs HTTPS:** The server is configured for HTTP to avoid mixed content issues. For production, consider implementing proper HTTPS with valid certificates.
 
-2. **File Upload:** This server is designed for file serving only. File upload functionality should be implemented separately with additional security measures.
+2. **File Upload:** The server now includes secure file upload functionality with dual storage architecture. Uploaded files are stored server-side for review before being made public.
 
 3. **Production Deployment:**
 
@@ -200,7 +232,9 @@ const limiter = rateLimit({
    - Implement proper logging and monitoring
    - Consider additional authentication/authorization layers
 
-4. **File Permissions:** Ensure the uploads directory has appropriate permissions and is not executable.
+4. **File Permissions:** Ensure both the `public` and `uploads` directories have appropriate permissions and are not executable.
+
+5. **Upload Review Process:** Implement a process to review uploaded files in the `uploads` directory before moving them to `public` for client access.
 
 ## 🐛 Troubleshooting
 
@@ -214,9 +248,16 @@ const limiter = rateLimit({
 
 **Files not accessible:**
 
-- Verify file exists in uploads directory
+- Verify file exists in public directory (not uploads)
 - Check file permissions
 - Ensure file type is in allowed extensions list
+
+**Upload failures:**
+
+- Check file size (max 100MB)
+- Verify file type is allowed
+- Ensure uploads directory exists and is writable
+- Check rate limits
 
 **Rate limit errors:**
 
@@ -245,6 +286,13 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **v1.0.0** - Initial release with basic file serving
 - **v2.0.0** - Added folder navigation and enhanced security
 - **v2.1.0** - Fixed path-to-regexp routing issues and improved UI
+- **v3.0.0** - Added secure file upload with dual storage architecture
+  - Implemented multer-based file upload system
+  - Added dual progress bars for upload tracking
+  - Separated public and server-side storage
+  - Enhanced security with upload rate limiting
+  - Added drag & drop file upload interface
+  - Implemented automatic file conflict resolution
 
 ## 📞 Support
 

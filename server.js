@@ -4,6 +4,7 @@ const fs = require("fs");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const cors = require("cors");
+const multer = require("multer");
 const app = express();
 
 // Security middleware
@@ -45,6 +46,14 @@ const downloadLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const uploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Limit uploads to 10 per 15 minutes per IP
+  message: "Too many upload requests, please try again later.",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 app.use(limiter);
 
 // CORS configuration
@@ -60,6 +69,7 @@ app.use(
 // Security functions
 function sanitizeFilename(filename) {
   // Remove any path traversal attempts and dangerous characters
+  // Be more permissive with allowed characters for filenames
   return filename.replace(/[<>:"/\\|?*\x00-\x1f]/g, "").replace(/\.\./g, "");
 }
 
@@ -72,8 +82,9 @@ function sanitizePath(requestedPath) {
 }
 
 function isValidFilename(filename) {
-  // Check for valid filename patterns (now also allows forward slashes for paths)
-  const validPattern = /^[a-zA-Z0-9._\-\/]+$/;
+  // Check for valid filename patterns (more permissive for regular files)
+  // Allow letters, numbers, dots, hyphens, underscores, spaces, and forward slashes for paths
+  const validPattern = /^[a-zA-Z0-9._\-\s\/]+$/;
   return (
     validPattern.test(filename) && filename.length <= 500 && filename.length > 0
   );
@@ -123,7 +134,79 @@ function isSecurePath(requestedPath, baseDir) {
   return resolvedPath.startsWith(resolvedBaseDir);
 }
 
-// Secure static file serving with validation
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const requestedPath = req.body.uploadPath || "";
+    const sanitizedPath = sanitizePath(requestedPath);
+    const uploadsDir = path.join(__dirname, "uploads");
+    const targetDir = path.join(uploadsDir, sanitizedPath);
+
+    // Security check for path traversal
+    if (sanitizedPath && !isSecurePath(sanitizedPath, uploadsDir)) {
+      return cb(new Error("Invalid upload path"), null);
+    }
+
+    // Ensure directory exists
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+
+    cb(null, targetDir);
+  },
+  filename: function (req, file, cb) {
+    // Sanitize filename
+    const sanitizedName = sanitizeFilename(file.originalname);
+
+    if (
+      !sanitizedName ||
+      !isValidFilename(sanitizedName) ||
+      !isAllowedFileType(sanitizedName)
+    ) {
+      return cb(new Error("Invalid file type or name"), null);
+    }
+
+    // Check if file already exists and add number suffix if needed
+    const targetDir = req.body.uploadPath || "";
+    const sanitizedDir = sanitizePath(targetDir);
+    const uploadsDir = path.join(__dirname, "uploads");
+    const fullDir = path.join(uploadsDir, sanitizedDir);
+
+    let finalName = sanitizedName;
+    let counter = 1;
+
+    while (fs.existsSync(path.join(fullDir, finalName))) {
+      const ext = path.extname(sanitizedName);
+      const nameWithoutExt = sanitizedName.slice(0, -ext.length);
+      finalName = `${nameWithoutExt}_${counter}${ext}`;
+      counter++;
+    }
+
+    cb(null, finalName);
+  },
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100MB limit
+    files: 1, // Only one file at a time
+  },
+  fileFilter: function (req, file, cb) {
+    const sanitizedName = sanitizeFilename(file.originalname);
+    if (
+      !sanitizedName ||
+      !isValidFilename(sanitizedName) ||
+      !isAllowedFileType(sanitizedName)
+    ) {
+      cb(new Error("File type not allowed"), false);
+    } else {
+      cb(null, true);
+    }
+  },
+});
+
+// Secure static file serving with validation (serves from public folder for client downloads)
 app.use(
   "/download",
   downloadLimiter,
@@ -140,13 +223,13 @@ app.use(
       return res.status(400).json({ error: "Invalid path" });
     }
 
-    const uploadsDir = path.join(__dirname, "uploads");
-    const fullPath = path.join(uploadsDir, sanitizedPath);
+    const publicDir = path.join(__dirname, "public");
+    const fullPath = path.join(publicDir, sanitizedPath);
 
     console.log(`Requested path: ${fullPath}`);
 
     // Check for path traversal
-    if (!isSecurePath(sanitizedPath, uploadsDir)) {
+    if (!isSecurePath(sanitizedPath, publicDir)) {
       console.log(`Path traversal attempt blocked: ${sanitizedPath}`);
       return res.status(403).json({ error: "Access denied" });
     }
@@ -169,7 +252,8 @@ app.use(
         `File found, serving: ${sanitizedPath} (${stats.size} bytes)`
       );
 
-      // Set security headers for downloads      res.setHeader("X-Content-Type-Options", "nosniff");
+      // Set security headers for downloads
+      res.setHeader("X-Content-Type-Options", "nosniff");
       res.setHeader(
         "Content-Disposition",
         `attachment; filename="${filename}"`
@@ -178,7 +262,7 @@ app.use(
       next();
     });
   },
-  express.static(path.join(__dirname, "uploads"))
+  express.static(path.join(__dirname, "public"))
 );
 
 // Function to format file size
@@ -221,8 +305,8 @@ function getFileIcon(filename) {
 
 // Test route to verify file access
 app.get("/test-download", (req, res) => {
-  const filename = "BdSL194DatasetSplittedResized.zip";
-  const filePath = path.join(__dirname, "uploads", filename);
+  const filename = "DefenseVideo.mp4";
+  const filePath = path.join(__dirname, "public", filename);
 
   console.log("Test download requested for:", filename);
   console.log("File path:", filePath);
@@ -244,6 +328,48 @@ app.get("/test-download", (req, res) => {
       downloadUrl: `/download/${encodeURIComponent(filename)}`,
     });
   });
+});
+
+// Upload endpoint
+app.post("/upload", uploadLimiter, upload.single("file"), (req, res) => {
+  console.log("Upload request received");
+  console.log("Request body:", req.body);
+  console.log("Request file:", req.file);
+
+  if (!req.file) {
+    console.log("No file received");
+    return res.status(400).json({ error: "No file uploaded" });
+  }
+
+  console.log(
+    `File uploaded successfully: ${req.file.filename} (${req.file.size} bytes)`
+  );
+
+  res.json({
+    success: true,
+    message: "File uploaded successfully",
+    filename: req.file.filename,
+    size: req.file.size,
+    path: req.body.uploadPath || "",
+  });
+});
+
+// Handle upload errors
+app.use((error, req, res, next) => {
+  if (error instanceof multer.MulterError) {
+    if (error.code === "LIMIT_FILE_SIZE") {
+      return res.status(400).json({ error: "File too large (max 100MB)" });
+    }
+    if (error.code === "LIMIT_FILE_COUNT") {
+      return res.status(400).json({ error: "Too many files" });
+    }
+  }
+
+  if (error.message) {
+    return res.status(400).json({ error: error.message });
+  }
+
+  next(error);
 });
 
 // Main route - display file listing with security (supports folder navigation)
@@ -274,11 +400,11 @@ function handleDirectoryListing(req, res) {
   console.log(`Requested directory path: ${requestedPath}`);
   console.log(`Sanitized directory path: ${sanitizedPath}`);
 
-  const uploadsDir = path.join(__dirname, "uploads");
-  const currentDir = path.join(uploadsDir, sanitizedPath);
+  const publicDir = path.join(__dirname, "public");
+  const currentDir = path.join(publicDir, sanitizedPath);
 
   // Security check for path traversal
-  if (sanitizedPath && !isSecurePath(sanitizedPath, uploadsDir)) {
+  if (sanitizedPath && !isSecurePath(sanitizedPath, publicDir)) {
     console.log(`Path traversal attempt blocked: ${sanitizedPath}`);
     return res.status(403).json({ error: "Access denied" });
   }
@@ -603,6 +729,179 @@ function handleDirectoryListing(req, res) {
             color: #333;
         }
         
+        .upload-button {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: linear-gradient(45deg, #4caf50, #45a049);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 15px 25px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+        
+        .upload-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+        }
+        
+        .upload-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .upload-modal.active {
+            display: flex;
+        }
+        
+        .upload-content {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+        
+        .upload-header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        
+        .upload-header h2 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .file-drop-zone {
+            border: 2px dashed #ddd;
+            border-radius: 10px;
+            padding: 40px 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .file-drop-zone.dragover {
+            border-color: #4caf50;
+            background: #f8fff8;
+        }
+        
+        .file-drop-zone:hover {
+            border-color: #4caf50;
+        }
+        
+        .drop-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            color: #666;
+        }
+        
+        .upload-progress {
+            display: none;
+            margin-top: 20px;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 12px;
+            background: #e0e0e0;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(45deg, #4caf50, #45a049);
+            width: 0%;
+            transition: width 0.3s ease;
+            position: relative;
+        }
+        
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(
+                -45deg,
+                transparent 35%,
+                rgba(255,255,255,0.2) 35%,
+                rgba(255,255,255,0.2) 65%,
+                transparent 65%
+            );
+            animation: progressAnimation 1s linear infinite;
+        }
+        
+        @keyframes progressAnimation {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        
+        .upload-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(45deg, #2196F3, #21CBF3);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+        }
+        
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #666;
+        }
+        
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
         @media (max-width: 768px) {
             .file-grid {
                 grid-template-columns: 1fr;
@@ -626,11 +925,11 @@ function handleDirectoryListing(req, res) {
 <body>
     <div class="container">
         <div class="security-banner">
-            🔒 Secure File Transfer • Rate Limited • Validated Files Only
+            🔒 Secure File Transfer • Rate Limited • Validated Files Only • Server-Side Upload Processing
         </div>
         <div class="header">
             <h1>📁 Secure File Explorer</h1>
-            <p>Browse and download your files securely</p>
+            <p>Browse and download your files securely from public storage</p>
             <div class="stats">
                 <div class="stat-item">
                     <div class="stat-number">${folders.length}</div>
@@ -725,6 +1024,67 @@ function handleDirectoryListing(req, res) {
         </div>
         `
         }
+    </div>
+    
+    <!-- Upload Button -->
+    <button class="upload-button" onclick="openUploadModal()">
+        📤 Upload File
+    </button>
+    
+    <!-- Upload Modal -->
+    <div class="upload-modal" id="uploadModal">
+        <div class="upload-content">
+            <div class="upload-header">
+                <h2>📤 Upload File</h2>
+                <p>Upload a file to server storage (will be reviewed before making public): <strong>${
+                  sanitizedPath || "Root"
+                }</strong></p>
+            </div>
+            
+            <form id="uploadForm" enctype="multipart/form-data">
+                <input type="hidden" name="uploadPath" value="${sanitizedPath}">
+                
+                <div class="file-drop-zone" id="dropZone">
+                    <div class="drop-icon">📁</div>
+                    <p><strong>Drop files here</strong> or <strong>click to browse</strong></p>
+                    <div id="selectedFile" style="display: none; margin-top: 15px; padding: 10px; background: #e8f5e8; border-radius: 8px; color: #2d5f2d;">
+                        <strong>Selected:</strong> <span id="selectedFileName"></span>
+                    </div>
+                    <p style="font-size: 0.9rem; color: #666; margin-top: 10px;">
+                        Maximum file size: 100MB<br>
+                        Allowed types: PDF, Images, Videos, Documents, Archives
+                    </p>
+                    <input type="file" id="fileInput" name="file" style="display: none;" accept=".pdf,.txt,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.bmp,.webp,.mp4,.mp3,.wav,.avi,.mov,.zip,.rar,.7z,.tar,.gz,.json,.xml,.csv,.html,.css,.js">
+                </div>
+                
+                <div class="upload-progress" id="uploadProgress">
+                    <div style="margin-bottom: 15px;">
+                        <p style="margin-bottom: 5px;"><strong>Current File Progress:</strong></p>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill"></div>
+                        </div>
+                        <p id="progressText" style="margin-top: 5px;">0%</p>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <p style="margin-bottom: 5px;"><strong>Overall Upload Status:</strong></p>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="overallProgressFill" style="background: linear-gradient(45deg, #2196F3, #21CBF3);"></div>
+                        </div>
+                        <p id="overallProgressText" style="margin-top: 5px;">Preparing...</p>
+                    </div>
+                    
+                    <div id="uploadStatus" style="text-align: center; color: #666; font-size: 0.9rem;">
+                        <span id="uploadStatusText">Starting upload...</span>
+                    </div>
+                </div>
+                
+                <div class="upload-buttons">
+                    <button type="button" class="btn btn-secondary" onclick="closeUploadModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="uploadBtn">Upload File</button>
+                </div>
+            </form>
+        </div>
     </div>    <script>
     function downloadFile(filename) {
         try {
@@ -807,9 +1167,294 @@ function handleDirectoryListing(req, res) {
         }
     }
     
+    function openUploadModal() {
+        document.getElementById('uploadModal').classList.add('active');
+    }
+    
+    function closeUploadModal() {
+        // Cancel ongoing upload if any
+        if (window.uploadInProgress && window.currentUploadXHR) {
+            console.log('Cancelling ongoing upload');
+            window.currentUploadXHR.abort();
+            window.uploadInProgress = false;
+            window.currentUploadXHR = null;
+        }
+        
+        const modal = document.getElementById('uploadModal');
+        modal.classList.remove('active');
+        
+        // Reset form
+        document.getElementById('uploadForm').reset();
+        document.getElementById('uploadProgress').style.display = 'none';
+        document.getElementById('progressFill').style.width = '0%';
+        document.getElementById('progressText').textContent = '0%';
+        document.getElementById('overallProgressFill').style.width = '0%';
+        document.getElementById('overallProgressText').textContent = 'Preparing...';
+        document.getElementById('uploadStatusText').textContent = 'Ready';
+        document.getElementById('uploadBtn').disabled = false;
+        document.getElementById('uploadBtn').textContent = 'Upload File';
+        document.getElementById('selectedFile').style.display = 'none';
+        document.getElementById('selectedFileName').textContent = '';
+        
+        // Clear the stored file
+        window.selectedFile = null;
+    }
+    
+    function showSelectedFile(file) {
+        const selectedFileDiv = document.getElementById('selectedFile');
+        const selectedFileName = document.getElementById('selectedFileName');
+        
+        selectedFileName.textContent = file.name + ' (' + formatFileSize(file.size) + ')';
+        selectedFileDiv.style.display = 'block';
+    }
+    
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+    
+    function validateFile(file) {
+        // Check file size (100MB = 100 * 1024 * 1024 bytes)
+        const maxSize = 100 * 1024 * 1024;
+        if (file.size > maxSize) {
+            showUploadMessage('❌ File too large. Maximum size is 100MB.', 'error');
+            return false;
+        }
+        
+        // Check file type
+        const allowedExtensions = [
+            '.pdf', '.txt', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+            '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp',
+            '.mp4', '.mp3', '.wav', '.avi', '.mov',
+            '.zip', '.rar', '.7z', '.tar', '.gz',
+            '.json', '.xml', '.csv', '.html', '.css', '.js'
+        ];
+        
+        const fileName = file.name.toLowerCase();
+        const hasValidExtension = allowedExtensions.some(ext => fileName.endsWith(ext));
+        
+        if (!hasValidExtension) {
+            showUploadMessage('❌ File type not allowed. Please check the allowed file types.', 'error');
+            return false;
+        }
+        
+        return true;
+    }
+    
+    function uploadFile(file) {
+        console.log('Upload function called with file:', file);
+        
+        // Prevent multiple uploads
+        if (window.uploadInProgress) {
+            console.log('Upload already in progress, ignoring request');
+            showUploadMessage('⚠️ Upload already in progress. Please wait.', 'error');
+            return;
+        }
+        
+        // Validate file on client side first
+        if (!validateFile(file)) {
+            console.log('File validation failed');
+            return; // Stop if validation fails
+        }
+        
+        console.log('File validation passed, starting upload...');
+        window.uploadInProgress = true;
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('uploadPath', document.querySelector('input[name="uploadPath"]').value);
+        
+        const uploadProgress = document.getElementById('uploadProgress');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const overallProgressFill = document.getElementById('overallProgressFill');
+        const overallProgressText = document.getElementById('overallProgressText');
+        const uploadStatusText = document.getElementById('uploadStatusText');
+        const uploadBtn = document.getElementById('uploadBtn');
+        
+        // Show progress section
+        uploadProgress.style.display = 'block';
+        uploadBtn.disabled = true;
+        uploadBtn.textContent = 'Uploading...';
+        
+        // Initialize progress
+        progressFill.style.width = '0%';
+        progressText.textContent = '0%';
+        overallProgressFill.style.width = '0%';
+        overallProgressText.textContent = 'Initializing...';
+        uploadStatusText.textContent = 'Preparing upload...';
+        
+        const xhr = new XMLHttpRequest();
+        
+        // Store xhr reference for potential cancellation
+        window.currentUploadXHR = xhr;
+        
+        // Track upload progress
+        xhr.upload.addEventListener('progress', function(e) {
+            console.log('Upload progress event:', e);
+            if (e.lengthComputable) {
+                const percentComplete = (e.loaded / e.total) * 100;
+                
+                // Update current file progress
+                progressFill.style.width = percentComplete + '%';
+                progressText.textContent = Math.round(percentComplete) + '%';
+                
+                // Update overall progress (for single file, it's the same)
+                overallProgressFill.style.width = percentComplete + '%';
+                
+                // Update status text based on progress
+                if (percentComplete < 25) {
+                    overallProgressText.textContent = 'Uploading...';
+                    uploadStatusText.textContent = 'Sending file data...';
+                } else if (percentComplete < 75) {
+                    overallProgressText.textContent = 'Processing...';
+                    uploadStatusText.textContent = 'Transferring ' + formatFileSize(e.loaded) + ' of ' + formatFileSize(e.total);
+                } else if (percentComplete < 100) {
+                    overallProgressText.textContent = 'Finalizing...';
+                    uploadStatusText.textContent = 'Almost complete...';
+                } else {
+                    overallProgressText.textContent = 'Completing...';
+                    uploadStatusText.textContent = 'Processing on server...';
+                }
+            }
+        });
+        
+        // Handle successful upload
+        xhr.addEventListener('load', function() {
+            console.log('Upload load event, status:', xhr.status);
+            console.log('Response text:', xhr.responseText);
+            console.log('Response headers:', xhr.getAllResponseHeaders());
+            
+            if (xhr.status === 200) {
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    console.log('Upload successful:', response);
+                    
+                    // Complete the progress bars
+                    progressFill.style.width = '100%';
+                    progressText.textContent = '100%';
+                    overallProgressFill.style.width = '100%';
+                    overallProgressText.textContent = 'Complete!';
+                    uploadStatusText.textContent = 'Upload successful!';
+                    
+                    showUploadMessage('✅ File uploaded successfully: ' + response.filename, 'success');
+                    
+                    // Complete upload process
+                    completeUpload();
+                    
+                } catch (e) {
+                    console.error('Error parsing response:', e);
+                    console.error('Raw response:', xhr.responseText);
+                    showUploadMessage('❌ Upload failed: Invalid server response', 'error');
+                    resetUploadState();
+                }
+            } else {
+                console.log('Upload failed with status:', xhr.status);
+                console.log('Response:', xhr.responseText);
+                try {
+                    const errorResponse = JSON.parse(xhr.responseText);
+                    showUploadMessage('❌ Upload failed: ' + errorResponse.error, 'error');
+                } catch (e) {
+                    showUploadMessage('❌ Upload failed: Server error (status ' + xhr.status + ')', 'error');
+                }
+                resetUploadState();
+            }
+        });
+        
+        // Handle network errors
+        xhr.addEventListener('error', function() {
+            console.error('Upload network error');
+            showUploadMessage('❌ Upload failed: Network error', 'error');
+            resetUploadState();
+        });
+        
+        // Handle timeout
+        xhr.addEventListener('timeout', function() {
+            console.error('Upload timeout');
+            showUploadMessage('❌ Upload failed: Request timeout', 'error');
+            resetUploadState();
+        });
+        
+        // Set timeout (5 minutes for large files)
+        xhr.timeout = 5 * 60 * 1000;
+        
+        console.log('Sending upload request...');
+        
+        // Small delay to ensure UI is updated
+        setTimeout(() => {
+            xhr.open('POST', '/upload');
+            xhr.send(formData);
+        }, 100);
+        
+        function resetUploadState() {
+            console.log('Resetting upload state');
+            window.uploadInProgress = false;
+            window.currentUploadXHR = null;
+            uploadBtn.disabled = false;
+            uploadBtn.textContent = 'Upload File';
+            uploadProgress.style.display = 'none';
+            progressFill.style.width = '0%';
+            progressText.textContent = '0%';
+            overallProgressFill.style.width = '0%';
+            overallProgressText.textContent = 'Preparing...';
+            uploadStatusText.textContent = 'Ready';
+        }
+        
+        function completeUpload() {
+            console.log('Completing upload process');
+            window.uploadInProgress = false;
+            window.currentUploadXHR = null;
+            
+            // Close modal after showing success
+            setTimeout(() => {
+                closeUploadModal();
+                
+                // Refresh the page to show the new file
+                console.log('Refreshing page to show new file...');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 300);
+            }, 2000); // 2 seconds to show success message
+        }
+    }
+    
+    function showUploadMessage(message, type) {
+        const notification = document.createElement('div');
+        notification.innerHTML = message;
+        notification.style.position = 'fixed';
+        notification.style.top = '20px';
+        notification.style.right = '20px';
+        notification.style.background = type === 'success' ? '#4caf50' : '#f44336';
+        notification.style.color = 'white';
+        notification.style.padding = '15px 20px';
+        notification.style.borderRadius = '8px';
+        notification.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+        notification.style.zIndex = '10001';
+        notification.style.fontFamily = 'Segoe UI, sans-serif';
+        notification.style.fontSize = '14px';
+        notification.style.maxWidth = '350px';
+        notification.style.wordWrap = 'break-word';
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, type === 'success' ? 3000 : 5000);
+    }
+    
     // Initialize event listeners when page loads
     document.addEventListener('DOMContentLoaded', function() {
         console.log('DOM loaded, setting up event listeners');
+        
+        // Initialize upload state
+        window.uploadInProgress = false;
+        window.currentUploadXHR = null;
+        window.selectedFile = null;
         
         // Add click event listeners to all file cards
         const fileCards = document.querySelectorAll('.file-card');
@@ -843,6 +1488,100 @@ function handleDirectoryListing(req, res) {
             
             // Add visual feedback on hover
             card.style.cursor = 'pointer';
+        });
+        
+        // Setup upload functionality
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const uploadForm = document.getElementById('uploadForm');
+        
+        // Click to browse files
+        dropZone.addEventListener('click', function() {
+            fileInput.click();
+        });
+        
+        // File input change event
+        fileInput.addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                showSelectedFile(file);
+                // Don't auto-upload, just show selection
+            }
+        });
+        
+        // Drag and drop events
+        dropZone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+        
+        dropZone.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+        });
+        
+        dropZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            
+            if (e.dataTransfer.files.length > 0) {
+                const file = e.dataTransfer.files[0];
+                // Set the file input value (this is tricky, but we can work around it)
+                showSelectedFile(file);
+                
+                // Store the file for later upload
+                window.selectedFile = file;
+            }
+        });
+        
+        // Form submit event
+        uploadForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            console.log('Form submitted');
+            
+            // Prevent double submission
+            if (window.uploadInProgress) {
+                console.log('Upload already in progress, ignoring form submission');
+                return;
+            }
+            
+            let fileToUpload = null;
+            
+            // Check if we have a file from drag & drop
+            if (window.selectedFile) {
+                fileToUpload = window.selectedFile;
+                console.log('Using drag & drop file:', fileToUpload.name);
+            } 
+            // Or from file input
+            else if (fileInput.files.length > 0) {
+                fileToUpload = fileInput.files[0];
+                console.log('Using file input file:', fileToUpload.name);
+            }
+            
+            if (fileToUpload) {
+                console.log('Starting upload for file:', fileToUpload.name, 'Size:', fileToUpload.size);
+                uploadFile(fileToUpload);
+            } else {
+                console.log('No file selected for upload');
+                showUploadMessage('❌ Please select a file first.', 'error');
+            }
+        });
+        
+        // Also add click event to upload button for additional debugging
+        document.getElementById('uploadBtn').addEventListener('click', function(e) {
+            console.log('Upload button clicked, upload in progress:', window.uploadInProgress);
+            // The form submit event should handle this, but let's add logging
+            if (window.uploadInProgress) {
+                e.preventDefault();
+                console.log('Preventing double click - upload already in progress');
+            }
+        });
+        
+        // Close modal when clicking outside
+        document.getElementById('uploadModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeUploadModal();
+            }
         });
     });
     
