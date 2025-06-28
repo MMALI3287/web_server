@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Upload Cancellation**: Ability to cancel ongoing uploads
 - **Auto Page Refresh**: Automatic page refresh after successful uploads
 
-### Changed
+### Changed in 3.0.0
 
 - **Storage Structure**: Moved existing files from `uploads/` to `public/` directory
 - **Server Routing**: Updated all file serving routes to use `public/` directory
@@ -50,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.1.0] - 2025-06-22
 
-### Added
+### Added in 2.1.0
 
 - Comprehensive README.md with installation and usage instructions
 - CONTRIBUTING.md with development guidelines
@@ -59,13 +59,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Environment variables example file (.env.example)
 - Proper package.json with repository information
 
-### Fixed
+### Fixed in 2.1.0
 
 - Path-to-regexp routing errors causing server startup failures
 - Replaced problematic wildcard routes with middleware approach
 - Improved error handling and logging
 
-### Changed
+### Changed in 2.1.0
 
 - Updated project structure for GitHub readiness
 - Enhanced documentation and code comments
@@ -73,7 +73,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.0.0] - 2025-06-22
 
-### Added
+### Added in 2.0.0
 
 - Folder navigation through web interface
 - Breadcrumb navigation for easy directory traversal
@@ -84,14 +84,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Empty directory handling
 - Test folder and files for demonstration
 
-### Changed
+### Changed in 2.0.0
 
 - Refactored main route to support folder browsing
 - Updated HTML generation for folder navigation
 - Improved security with path validation for directories
 - Enhanced user interface with modern styling
 
-### Security
+### Security in 2.0.0
 
 - Path traversal protection for directory navigation
 - Secure folder access validation
@@ -99,7 +99,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0] - 2025-06-21
 
-### Added
+### Added in 1.0.0
 
 - Initial secure file server implementation
 - Express.js web server with security middleware
@@ -116,7 +116,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Error handling and logging
 - Test endpoint for file access verification
 
-### Security
+### Security in 1.0.0
 
 - Comprehensive path sanitization
 - File type restrictions

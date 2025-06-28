@@ -186,7 +186,7 @@ This separation ensures that uploaded content doesn't immediately become public 
 
 ### Project Structure
 
-```
+```text
 web_server/
 ├── server.js          # Main server file
 ├── package.json       # Dependencies and scripts
