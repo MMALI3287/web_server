@@ -15,8 +15,27 @@ build/
 .env.test.local
 .env.production.local
 
-# Uploads directory (contains user files)
+# File storage directories (contain user files and large media)
 uploads/
+public/
+
+# Large media files (prevent accidental commits)
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.wmv
+*.flv
+*.webm
+*.m4v
+*.3gp
+*.iso
+*.dmg
+*.zip
+*.rar
+*.7z
+*.tar.gz
+*.tar.bz2
 
 # OS generated files
 .DS_Store
