@@ -26,7 +26,7 @@ Describe specific use cases where this feature would be helpful:
 **Additional context**
 Add any other context, mockups, or screenshots about the feature request here.
 
-**Priority**
+## Priority
 
 - [ ] Low (nice to have)
 - [ ] Medium (would be helpful)

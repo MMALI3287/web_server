@@ -38,13 +38,13 @@ If applicable, add screenshots to help explain your problem.
 
 ## 📋 Server Logs
 
-```
+```text
 Paste any relevant server console output here
 ```
 
 ## 🌐 Browser Console
 
-```
+```text
 Paste any relevant browser console errors here
 ```
 

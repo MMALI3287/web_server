@@ -5,6 +5,7 @@ Thank you for your interest in contributing to the Secure File Server project! W
 ## 🚀 Getting Started
 
 ### Prerequisites
+
 - Node.js (v12 or higher)
 - Git
 - Basic knowledge of JavaScript and Express.js
@@ -14,22 +15,26 @@ Thank you for your interest in contributing to the Secure File Server project! W
 1. **Fork the repository** on GitHub
 
 2. **Clone your fork:**
+
    ```bash
    git clone https://github.com/yourusername/secure-file-server.git
    cd secure-file-server
    ```
 
 3. **Install dependencies:**
+
    ```bash
    npm install
    ```
 
 4. **Create uploads directory:**
+
    ```bash
    mkdir uploads
    ```
 
 5. **Create test files for development:**
+
    ```bash
    mkdir uploads/testfolder
    echo "Test content" > uploads/testfile.txt
@@ -37,6 +42,7 @@ Thank you for your interest in contributing to the Secure File Server project! W
    ```
 
 6. **Start the development server:**
+
    ```bash
    npm run dev
    ```
@@ -44,31 +50,37 @@ Thank you for your interest in contributing to the Secure File Server project! W
 ## 📝 Development Guidelines
 
 ### Code Standards
+
 - Use consistent indentation (2 spaces)
 - Follow camelCase naming convention
 - Add comments for complex logic
 - Maintain existing code structure
 
 ### Security Considerations
+
 - Always validate and sanitize user input
 - Test for path traversal vulnerabilities
 - Ensure rate limiting is respected
 - Verify file type restrictions work correctly
 
 ### Testing Your Changes
+
 Before submitting a PR, please test:
 
 1. **Basic functionality:**
+
    - Server starts without errors
    - Root directory loads correctly
    - File downloads work
 
 2. **Folder navigation:**
+
    - Can browse into subdirectories
    - Breadcrumb navigation works
    - Back navigation functions properly
 
 3. **Security features:**
+
    - Path traversal attempts are blocked
    - Invalid file types are rejected
    - Rate limiting prevents abuse
@@ -83,11 +95,13 @@ Before submitting a PR, please test:
 When reporting bugs, please include:
 
 1. **Environment details:**
+
    - Node.js version
    - Operating system
    - Browser (if web-related)
 
 2. **Steps to reproduce:**
+
    - Detailed steps to recreate the issue
    - Expected vs actual behavior
    - Screenshots if applicable
@@ -109,22 +123,26 @@ For new features, please:
 ## 🔄 Pull Request Process
 
 1. **Create a feature branch:**
+
    ```bash
    git checkout -b feature/amazing-feature
    ```
 
 2. **Make your changes:**
+
    - Write clean, documented code
    - Test thoroughly
    - Update README if needed
 
 3. **Commit your changes:**
+
    ```bash
    git add .
    git commit -m "Add amazing feature"
    ```
 
 4. **Push to your fork:**
+
    ```bash
    git push origin feature/amazing-feature
    ```
@@ -136,6 +154,7 @@ For new features, please:
    - Include testing information
 
 ### PR Requirements
+
 - [ ] Code follows project standards
 - [ ] All tests pass
 - [ ] Security implications considered
