@@ -61,7 +61,7 @@ app.use(
   cors({
     origin: process.env.ALLOWED_ORIGINS
       ? process.env.ALLOWED_ORIGINS.split(",")
-      : false,
+      : "*", // Allow all origins for development
     credentials: false,
   })
 );
@@ -190,7 +190,7 @@ const upload = multer({
   storage: storage,
   limits: {
     fileSize: 100 * 1024 * 1024, // 100MB limit
-    files: 1, // Only one file at a time
+    files: 10, // Allow up to 10 files at once
   },
   fileFilter: function (req, file, cb) {
     const sanitizedName = sanitizeFilename(file.originalname);
@@ -330,9 +330,9 @@ app.get("/test-download", (req, res) => {
   });
 });
 
-// Upload endpoint
+// Upload endpoint for single file
 app.post("/upload", uploadLimiter, upload.single("file"), (req, res) => {
-  console.log("Upload request received");
+  console.log("Single file upload request received");
   console.log("Request body:", req.body);
   console.log("Request file:", req.file);
 
@@ -350,6 +350,35 @@ app.post("/upload", uploadLimiter, upload.single("file"), (req, res) => {
     message: "File uploaded successfully",
     filename: req.file.filename,
     size: req.file.size,
+    path: req.body.uploadPath || "",
+  });
+});
+
+// Upload endpoint for multiple files
+app.post("/upload-multiple", uploadLimiter, upload.array("files", 10), (req, res) => {
+  console.log("Multiple files upload request received");
+  console.log("Request body:", req.body);
+  console.log("Request files:", req.files);
+
+  if (!req.files || req.files.length === 0) {
+    console.log("No files received");
+    return res.status(400).json({ error: "No files uploaded" });
+  }
+
+  const uploadedFiles = req.files.map(file => ({
+    filename: file.filename,
+    originalname: file.originalname,
+    size: file.size,
+    path: req.body.uploadPath || ""
+  }));
+
+  console.log(`${req.files.length} files uploaded successfully`);
+
+  res.json({
+    success: true,
+    message: `${req.files.length} files uploaded successfully`,
+    files: uploadedFiles,
+    totalSize: req.files.reduce((total, file) => total + file.size, 0),
     path: req.body.uploadPath || "",
   });
 });
@@ -1028,15 +1057,15 @@ function handleDirectoryListing(req, res) {
     
     <!-- Upload Button -->
     <button class="upload-button" onclick="openUploadModal()">
-        📤 Upload File
+        📤 Upload Files
     </button>
     
     <!-- Upload Modal -->
     <div class="upload-modal" id="uploadModal">
         <div class="upload-content">
             <div class="upload-header">
-                <h2>📤 Upload File</h2>
-                <p>Upload a file to server storage (will be reviewed before making public): <strong>${
+                <h2>📤 Upload Files</h2>
+                <p>Upload files to server storage (will be reviewed before making public): <strong>${
                   sanitizedPath || "Root"
                 }</strong></p>
             </div>
@@ -1047,14 +1076,17 @@ function handleDirectoryListing(req, res) {
                 <div class="file-drop-zone" id="dropZone">
                     <div class="drop-icon">📁</div>
                     <p><strong>Drop files here</strong> or <strong>click to browse</strong></p>
-                    <div id="selectedFile" style="display: none; margin-top: 15px; padding: 10px; background: #e8f5e8; border-radius: 8px; color: #2d5f2d;">
-                        <strong>Selected:</strong> <span id="selectedFileName"></span>
+                    <p style="font-size: 0.9rem; color: #666; margin-top: 5px;">Select multiple files to upload at once</p>
+                    <div id="selectedFiles" style="display: none; margin-top: 15px; padding: 10px; background: #e8f5e8; border-radius: 8px; color: #2d5f2d;">
+                        <strong>Selected files:</strong>
+                        <div id="selectedFilesList" style="margin-top: 8px;"></div>
                     </div>
                     <p style="font-size: 0.9rem; color: #666; margin-top: 10px;">
-                        Maximum file size: 100MB<br>
+                        Maximum file size: 100MB per file<br>
+                        Maximum files: 10 files at once<br>
                         Allowed types: PDF, Images, Videos, Documents, Archives
                     </p>
-                    <input type="file" id="fileInput" name="file" style="display: none;" accept=".pdf,.txt,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.bmp,.webp,.mp4,.mp3,.wav,.avi,.mov,.zip,.rar,.7z,.tar,.gz,.json,.xml,.csv,.html,.css,.js">
+                    <input type="file" id="fileInput" name="file" style="display: none;" multiple accept=".pdf,.txt,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.bmp,.webp,.mp4,.mp3,.wav,.avi,.mov,.zip,.rar,.7z,.tar,.gz,.json,.xml,.csv,.html,.css,.js">
                 </div>
                 
                 <div class="upload-progress" id="uploadProgress">
@@ -1081,7 +1113,7 @@ function handleDirectoryListing(req, res) {
                 
                 <div class="upload-buttons">
                     <button type="button" class="btn btn-secondary" onclick="closeUploadModal()">Cancel</button>
-                    <button type="submit" class="btn btn-primary" id="uploadBtn">Upload File</button>
+                    <button type="submit" class="btn btn-primary" id="uploadBtn">Upload Files</button>
                 </div>
             </form>
         </div>
@@ -1192,20 +1224,39 @@ function handleDirectoryListing(req, res) {
         document.getElementById('overallProgressText').textContent = 'Preparing...';
         document.getElementById('uploadStatusText').textContent = 'Ready';
         document.getElementById('uploadBtn').disabled = false;
-        document.getElementById('uploadBtn').textContent = 'Upload File';
-        document.getElementById('selectedFile').style.display = 'none';
-        document.getElementById('selectedFileName').textContent = '';
+        document.getElementById('uploadBtn').textContent = 'Upload Files';
+        document.getElementById('selectedFiles').style.display = 'none';
+        document.getElementById('selectedFilesList').innerHTML = '';
         
-        // Clear the stored file
-        window.selectedFile = null;
+        // Clear the stored files
+        window.selectedFiles = null;
     }
     
-    function showSelectedFile(file) {
-        const selectedFileDiv = document.getElementById('selectedFile');
-        const selectedFileName = document.getElementById('selectedFileName');
+    function showSelectedFiles(files) {
+        const selectedFilesDiv = document.getElementById('selectedFiles');
+        const selectedFilesList = document.getElementById('selectedFilesList');
         
-        selectedFileName.textContent = file.name + ' (' + formatFileSize(file.size) + ')';
-        selectedFileDiv.style.display = 'block';
+        if (files.length === 0) {
+            selectedFilesDiv.style.display = 'none';
+            return;
+        }
+        
+        let totalSize = 0;
+        let filesHtml = '';
+        
+        Array.from(files).forEach((file, index) => {
+            totalSize += file.size;
+            filesHtml += '<div style="margin: 2px 0; font-size: 0.9rem;">' +
+                (index + 1) + '. ' + file.name + ' (' + formatFileSize(file.size) + ')' +
+                '</div>';
+        });
+        
+        filesHtml += '<div style="margin-top: 8px; font-weight: bold; border-top: 1px solid #ccc; padding-top: 5px;">' +
+            'Total: ' + files.length + ' files, ' + formatFileSize(totalSize) +
+            '</div>';
+        
+        selectedFilesList.innerHTML = filesHtml;
+        selectedFilesDiv.style.display = 'block';
     }
     
     function formatFileSize(bytes) {
@@ -1244,8 +1295,8 @@ function handleDirectoryListing(req, res) {
         return true;
     }
     
-    function uploadFile(file) {
-        console.log('Upload function called with file:', file);
+    function uploadFiles(files) {
+        console.log('Upload function called with files:', files);
         
         // Prevent multiple uploads
         if (window.uploadInProgress) {
@@ -1254,17 +1305,23 @@ function handleDirectoryListing(req, res) {
             return;
         }
         
-        // Validate file on client side first
-        if (!validateFile(file)) {
-            console.log('File validation failed');
-            return; // Stop if validation fails
+        // Validate all files on client side first
+        for (let i = 0; i < files.length; i++) {
+            if (!validateFile(files[i])) {
+                console.log('File validation failed for:', files[i].name);
+                return; // Stop if any validation fails
+            }
         }
         
-        console.log('File validation passed, starting upload...');
+        console.log('All files validation passed, starting upload...');
         window.uploadInProgress = true;
         
         const formData = new FormData();
-        formData.append('file', file);
+        
+        // Add all files to form data
+        Array.from(files).forEach(file => {
+            formData.append('files', file);
+        });
         formData.append('uploadPath', document.querySelector('input[name="uploadPath"]').value);
         
         const uploadProgress = document.getElementById('uploadProgress');
@@ -1285,7 +1342,7 @@ function handleDirectoryListing(req, res) {
         progressText.textContent = '0%';
         overallProgressFill.style.width = '0%';
         overallProgressText.textContent = 'Initializing...';
-        uploadStatusText.textContent = 'Preparing upload...';
+        uploadStatusText.textContent = 'Preparing upload of ' + files.length + ' files...';
         
         const xhr = new XMLHttpRequest();
         
@@ -1298,17 +1355,17 @@ function handleDirectoryListing(req, res) {
             if (e.lengthComputable) {
                 const percentComplete = (e.loaded / e.total) * 100;
                 
-                // Update current file progress
+                // Update current file progress (overall for all files)
                 progressFill.style.width = percentComplete + '%';
                 progressText.textContent = Math.round(percentComplete) + '%';
                 
-                // Update overall progress (for single file, it's the same)
+                // Update overall progress
                 overallProgressFill.style.width = percentComplete + '%';
                 
                 // Update status text based on progress
                 if (percentComplete < 25) {
                     overallProgressText.textContent = 'Uploading...';
-                    uploadStatusText.textContent = 'Sending file data...';
+                    uploadStatusText.textContent = 'Sending ' + files.length + ' files...';
                 } else if (percentComplete < 75) {
                     overallProgressText.textContent = 'Processing...';
                     uploadStatusText.textContent = 'Transferring ' + formatFileSize(e.loaded) + ' of ' + formatFileSize(e.total);
@@ -1340,7 +1397,11 @@ function handleDirectoryListing(req, res) {
                     overallProgressText.textContent = 'Complete!';
                     uploadStatusText.textContent = 'Upload successful!';
                     
-                    showUploadMessage('✅ File uploaded successfully: ' + response.filename, 'success');
+                    if (response.files) {
+                        showUploadMessage('✅ ' + response.files.length + ' files uploaded successfully!', 'success');
+                    } else {
+                        showUploadMessage('✅ File uploaded successfully: ' + response.filename, 'success');
+                    }
                     
                     // Complete upload process
                     completeUpload();
@@ -1378,14 +1439,17 @@ function handleDirectoryListing(req, res) {
             resetUploadState();
         });
         
-        // Set timeout (5 minutes for large files)
-        xhr.timeout = 5 * 60 * 1000;
+        // Set timeout (10 minutes for multiple large files)
+        xhr.timeout = 10 * 60 * 1000;
         
         console.log('Sending upload request...');
         
+        // Use different endpoint for multiple files
+        const endpoint = files.length > 1 ? '/upload-multiple' : '/upload';
+        
         // Small delay to ensure UI is updated
         setTimeout(() => {
-            xhr.open('POST', '/upload');
+            xhr.open('POST', endpoint);
             xhr.send(formData);
         }, 100);
         
@@ -1394,7 +1458,7 @@ function handleDirectoryListing(req, res) {
             window.uploadInProgress = false;
             window.currentUploadXHR = null;
             uploadBtn.disabled = false;
-            uploadBtn.textContent = 'Upload File';
+            uploadBtn.textContent = 'Upload Files';
             uploadProgress.style.display = 'none';
             progressFill.style.width = '0%';
             progressText.textContent = '0%';
@@ -1412,8 +1476,8 @@ function handleDirectoryListing(req, res) {
             setTimeout(() => {
                 closeUploadModal();
                 
-                // Refresh the page to show the new file
-                console.log('Refreshing page to show new file...');
+                // Refresh the page to show the new files
+                console.log('Refreshing page to show new files...');
                 setTimeout(() => {
                     window.location.reload();
                 }, 300);
@@ -1454,7 +1518,7 @@ function handleDirectoryListing(req, res) {
         // Initialize upload state
         window.uploadInProgress = false;
         window.currentUploadXHR = null;
-        window.selectedFile = null;
+        window.selectedFiles = null;
         
         // Add click event listeners to all file cards
         const fileCards = document.querySelectorAll('.file-card');
@@ -1503,9 +1567,10 @@ function handleDirectoryListing(req, res) {
         // File input change event
         fileInput.addEventListener('change', function(e) {
             if (e.target.files.length > 0) {
-                const file = e.target.files[0];
-                showSelectedFile(file);
-                // Don't auto-upload, just show selection
+                const files = e.target.files;
+                showSelectedFiles(files);
+                // Store files for upload
+                window.selectedFiles = files;
             }
         });
         
@@ -1525,12 +1590,11 @@ function handleDirectoryListing(req, res) {
             dropZone.classList.remove('dragover');
             
             if (e.dataTransfer.files.length > 0) {
-                const file = e.dataTransfer.files[0];
-                // Set the file input value (this is tricky, but we can work around it)
-                showSelectedFile(file);
+                const files = e.dataTransfer.files;
+                showSelectedFiles(files);
                 
-                // Store the file for later upload
-                window.selectedFile = file;
+                // Store the files for later upload
+                window.selectedFiles = files;
             }
         });
         
@@ -1545,25 +1609,25 @@ function handleDirectoryListing(req, res) {
                 return;
             }
             
-            let fileToUpload = null;
+            let filesToUpload = null;
             
-            // Check if we have a file from drag & drop
-            if (window.selectedFile) {
-                fileToUpload = window.selectedFile;
-                console.log('Using drag & drop file:', fileToUpload.name);
+            // Check if we have files from drag & drop
+            if (window.selectedFiles && window.selectedFiles.length > 0) {
+                filesToUpload = window.selectedFiles;
+                console.log('Using drag & drop files:', filesToUpload.length, 'files');
             } 
             // Or from file input
             else if (fileInput.files.length > 0) {
-                fileToUpload = fileInput.files[0];
-                console.log('Using file input file:', fileToUpload.name);
+                filesToUpload = fileInput.files;
+                console.log('Using file input files:', filesToUpload.length, 'files');
             }
             
-            if (fileToUpload) {
-                console.log('Starting upload for file:', fileToUpload.name, 'Size:', fileToUpload.size);
-                uploadFile(fileToUpload);
+            if (filesToUpload && filesToUpload.length > 0) {
+                console.log('Starting upload for', filesToUpload.length, 'files');
+                uploadFiles(filesToUpload);
             } else {
-                console.log('No file selected for upload');
-                showUploadMessage('❌ Please select a file first.', 'error');
+                console.log('No files selected for upload');
+                showUploadMessage('❌ Please select at least one file first.', 'error');
             }
         });
         

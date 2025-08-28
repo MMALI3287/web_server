@@ -31,7 +31,8 @@ A secure, feature-rich Node.js/Express file server that provides web-based folde
 - **Multi-level Directories** - Navigate through nested folder structures
 - **File Statistics** - Shows total files, folders, and combined size
 - **Empty Directory Handling** - Graceful handling of empty directories
-- **Large File Support** - Handles files up to 100MB efficiently
+- **Large File Support** - Handles files up to 100MB per file efficiently
+- **Multiple File Upload** - Upload up to 10 files at once (drag & drop or browse)
 - **Automatic File Renaming** - Prevents conflicts with existing files
 - **Real-time Upload Progress** - Dual progress bars for detailed feedback
 
@@ -169,13 +170,23 @@ This separation ensures that uploaded content doesn't immediately become public 
 
 ### POST `/upload`
 
-- **Description:** Upload a file to server storage
+- **Description:** Upload a single file to server storage
 - **Parameters:**
   - `file` - File to upload (multipart/form-data)
   - `uploadPath` - Target directory path (optional)
 - **Response:** JSON with upload status and file information
 - **Rate Limited:** Yes (10 requests per 15 minutes)
-- **File Size Limit:** 100MB
+- **File Size Limit:** 100MB per file
+
+### POST `/upload-multiple`
+
+- **Description:** Upload multiple files at once to server storage
+- **Parameters:**
+  - `files` - Array of files to upload (multipart/form-data)
+  - `uploadPath` - Target directory path (optional)
+- **Response:** JSON with upload status and files information
+- **Rate Limited:** Yes (10 requests per 15 minutes)
+- **File Limits:** Up to 10 files, 100MB per file
 
 ### GET `/test-download`
 
@@ -254,10 +265,18 @@ const limiter = rateLimit({
 
 **Upload failures:**
 
-- Check file size (max 100MB)
+- Check file size (max 100MB per file)
 - Verify file type is allowed
 - Ensure uploads directory exists and is writable
 - Check rate limits
+- For multiple files: ensure not exceeding 10 files limit
+
+**Network errors on upload:**
+
+- CORS issues: The server now allows all origins by default for development
+- Try accessing via `http://localhost:3000` instead of `http://127.0.0.1:3000`
+- Disable browser extensions that might block uploads
+- Check browser console for specific error messages
 
 **Rate limit errors:**
 
@@ -293,6 +312,12 @@ This project is licensed under the MIT License - see the LICENSE file for detail
   - Enhanced security with upload rate limiting
   - Added drag & drop file upload interface
   - Implemented automatic file conflict resolution
+- **v3.1.0** - Added multiple file upload support
+  - Upload up to 10 files at once
+  - Enhanced UI for multi-file selection
+  - Improved progress tracking for multiple files
+  - Separate endpoints for single and multiple file uploads
+  - Fixed CORS configuration for better compatibility
 
 ## 📞 Support
 
