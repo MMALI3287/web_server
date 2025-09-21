@@ -83,8 +83,8 @@ function sanitizePath(requestedPath) {
 
 function isValidFilename(filename) {
   // Check for valid filename patterns (more permissive for regular files)
-  // Allow letters, numbers, dots, hyphens, underscores, spaces, and forward slashes for paths
-  const validPattern = /^[a-zA-Z0-9._\-\s\/]+$/;
+  // Allow letters, numbers, dots, hyphens, underscores, spaces, parentheses, brackets, and forward slashes for paths
+  const validPattern = /^[a-zA-Z0-9._\-\s\/\(\)\[\]]+$/;
   return (
     validPattern.test(filename) && filename.length <= 500 && filename.length > 0
   );
@@ -355,33 +355,38 @@ app.post("/upload", uploadLimiter, upload.single("file"), (req, res) => {
 });
 
 // Upload endpoint for multiple files
-app.post("/upload-multiple", uploadLimiter, upload.array("files", 10), (req, res) => {
-  console.log("Multiple files upload request received");
-  console.log("Request body:", req.body);
-  console.log("Request files:", req.files);
+app.post(
+  "/upload-multiple",
+  uploadLimiter,
+  upload.array("files", 10),
+  (req, res) => {
+    console.log("Multiple files upload request received");
+    console.log("Request body:", req.body);
+    console.log("Request files:", req.files);
 
-  if (!req.files || req.files.length === 0) {
-    console.log("No files received");
-    return res.status(400).json({ error: "No files uploaded" });
+    if (!req.files || req.files.length === 0) {
+      console.log("No files received");
+      return res.status(400).json({ error: "No files uploaded" });
+    }
+
+    const uploadedFiles = req.files.map((file) => ({
+      filename: file.filename,
+      originalname: file.originalname,
+      size: file.size,
+      path: req.body.uploadPath || "",
+    }));
+
+    console.log(`${req.files.length} files uploaded successfully`);
+
+    res.json({
+      success: true,
+      message: `${req.files.length} files uploaded successfully`,
+      files: uploadedFiles,
+      totalSize: req.files.reduce((total, file) => total + file.size, 0),
+      path: req.body.uploadPath || "",
+    });
   }
-
-  const uploadedFiles = req.files.map(file => ({
-    filename: file.filename,
-    originalname: file.originalname,
-    size: file.size,
-    path: req.body.uploadPath || ""
-  }));
-
-  console.log(`${req.files.length} files uploaded successfully`);
-
-  res.json({
-    success: true,
-    message: `${req.files.length} files uploaded successfully`,
-    files: uploadedFiles,
-    totalSize: req.files.reduce((total, file) => total + file.size, 0),
-    path: req.body.uploadPath || "",
-  });
-});
+);
 
 // Handle upload errors
 app.use((error, req, res, next) => {
@@ -1318,10 +1323,16 @@ function handleDirectoryListing(req, res) {
         
         const formData = new FormData();
         
-        // Add all files to form data
-        Array.from(files).forEach(file => {
-            formData.append('files', file);
-        });
+        // Add files to form data with correct field name
+        if (files.length === 1) {
+            // Single file upload - use 'file' field name
+            formData.append('file', files[0]);
+        } else {
+            // Multiple files upload - use 'files' field name
+            Array.from(files).forEach(file => {
+                formData.append('files', file);
+            });
+        }
         formData.append('uploadPath', document.querySelector('input[name="uploadPath"]').value);
         
         const uploadProgress = document.getElementById('uploadProgress');
