@@ -15,6 +15,9 @@ build/
 .env.test.local
 .env.production.local
 
+# TLS certificates (private keys must never be committed)
+certs/
+
 # File storage directories (contain user files and large media)
 uploads/
 public/

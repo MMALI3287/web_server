@@ -1,7 +1,7 @@
 {
   "name": "secure-file-server",
-  "version": "2.1.0",
-  "description": "A secure Node.js/Express file server with folder navigation and comprehensive security features",
+  "version": "6.0.0",
+  "description": "A secure Node.js/Express file server with 30+ features: dark mode, file preview, WebSocket live updates, QR codes, text sharing, bulk operations, and more",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -28,15 +28,27 @@
   },
   "homepage": "https://github.com/MMALI3287/secure-file-server#readme",
   "dependencies": {
+    "archiver": "^7.0.1",
+    "bcrypt": "^6.0.0",
+    "bonjour-service": "^1.3.0",
+    "compression": "^1.8.1",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
+    "csrf-csrf": "^4.0.3",
+    "dotenv": "^17.3.1",
     "express": "^5.1.0",
     "express-rate-limit": "^7.5.0",
+    "file-type": "^21.3.0",
     "helmet": "^8.1.0",
     "multer": "^2.0.1",
-    "path-exists": "^5.0.0"
+    "nodemailer": "^8.0.1",
+    "qrcode": "^1.5.4",
+    "sharp": "^0.34.5",
+    "stream-throttle": "^0.1.3",
+    "webdav-server": "^2.6.2",
+    "ws": "^8.19.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.10",
-    "webpack-cli": "6.0.1"
+    "nodemon": "^3.1.10"
   }
 }

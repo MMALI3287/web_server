@@ -27,21 +27,23 @@ Thank you for your interest in contributing to the Secure File Server project! W
    npm install
    ```
 
-4. **Create uploads directory:**
+4. **Set up environment:**
 
    ```bash
-   mkdir uploads
+   cp .env.example .env
+   # Edit .env — generate bcrypt hashes for ADMIN_PASS_HASH and VIEWER_PASS_HASH:
+   # node -e "require('bcrypt').hash('admin', 10).then(h => console.log(h))"
    ```
 
-5. **Create test files for development:**
+5. **TLS certificates** are auto-generated on first start (requires OpenSSL on PATH). The cert includes SANs for `localhost`, all detected LAN IPs, and your public IP. To force regeneration, delete `certs/cert.pem` and `certs/key.pem` and restart.
+
+6. **Create storage directories** (if not present):
 
    ```bash
-   mkdir uploads/testfolder
-   echo "Test content" > uploads/testfile.txt
-   echo "Test folder content" > uploads/testfolder/test.txt
+   mkdir -p uploads public
    ```
 
-6. **Start the development server:**
+7. **Start the development server:**
 
    ```bash
    npm run dev
@@ -53,8 +55,11 @@ Thank you for your interest in contributing to the Secure File Server project! W
 
 - Use consistent indentation (2 spaces)
 - Follow camelCase naming convention
-- Add comments for complex logic
-- Maintain existing code structure
+- CommonJS `require()` — not ES modules
+- Route modules export `function(app, { deps })` and register routes on the Express app
+- Utility/security functions go in the appropriate `src/` module
+- Add new routes as modules under `src/routes/`
+- Log with `log.info()` / `log.error()` / `log.warn()` / `log.debug()` from `src/utils.js`
 
 ### Security Considerations
 
@@ -68,19 +73,16 @@ Thank you for your interest in contributing to the Secure File Server project! W
 Before submitting a PR, please test:
 
 1. **Basic functionality:**
-
    - Server starts without errors
    - Root directory loads correctly
    - File downloads work
 
 2. **Folder navigation:**
-
    - Can browse into subdirectories
    - Breadcrumb navigation works
    - Back navigation functions properly
 
 3. **Security features:**
-
    - Path traversal attempts are blocked
    - Invalid file types are rejected
    - Rate limiting prevents abuse
@@ -95,13 +97,11 @@ Before submitting a PR, please test:
 When reporting bugs, please include:
 
 1. **Environment details:**
-
    - Node.js version
    - Operating system
    - Browser (if web-related)
 
 2. **Steps to reproduce:**
-
    - Detailed steps to recreate the issue
    - Expected vs actual behavior
    - Screenshots if applicable
@@ -129,7 +129,6 @@ For new features, please:
    ```
 
 2. **Make your changes:**
-
    - Write clean, documented code
    - Test thoroughly
    - Update README if needed

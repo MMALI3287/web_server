@@ -1,332 +1,237 @@
-# 🗂️ Secure File Server with Upload and Download Capabilities
+# Secure File Server
 
-A secure, feature-rich Node.js/Express file server that provides web-based folder navigation, file downloads, and secure file uploads with comprehensive security measures and dual storage architecture.
+A secure Node.js/Express file server with web-based folder navigation, file downloads, and file uploads. Features session-based authentication, HTTPS, CSRF protection, dark mode, real-time WebSocket updates, and 30+ built-in features rivaling desktop file transfer applications.
 
-## ✨ Features
+## Features
 
-### 🔒 Security Features
+### Security
 
-- **Path Traversal Protection** - Prevents `../` directory traversal attacks
-- **File Type Validation** - Only allows whitelisted file extensions
-- **Rate Limiting** - Configurable request, download, and upload limits
-- **CORS Protection** - Configurable cross-origin resource sharing
-- **Security Headers** - Helmet.js integration for HTTP security headers
-- **Input Sanitization** - All file paths and names are sanitized
-- **Secure File Serving** - Validates file existence and permissions
-- **Dual Storage Architecture** - Separates public files from server-side uploads
+- **HTTPS** with TLS certificates
+- **Session-based authentication** — HMAC-SHA256 signed cookie tokens (24h expiry)
+- **Role-based authorization** — `admin` (browse + upload + manage) and `viewer` (browse + download)
+- **CSRF protection** — double-submit cookie pattern via `csrf-csrf`
+- **Magic-byte file validation** — rejects files whose content doesn't match their extension
+- **Path traversal prevention** — all paths sanitized and validated against base directory
+- **Rate limiting** — separate limits for general requests, downloads, and uploads
+- **Security headers** — Helmet.js with per-request CSP nonces, HSTS, COEP
+- **File type whitelisting** — configurable allowed extensions via admin UI or `config.json`
+- **Encrypted storage** — AES-256-GCM encryption at rest with PBKDF2 key derivation
+- **SSRF protection** — URL imports block private IP ranges
 
-### 🌐 Web Interface
+### Web Interface
 
-- **Folder Navigation** - Browse directories through a clean web UI
-- **Breadcrumb Navigation** - Easy navigation with clickable breadcrumbs
-- **File Download** - Secure file downloads from public storage
-- **File Upload** - Secure file uploads with dual progress tracking
-- **Responsive Design** - Works on desktop and mobile devices
-- **File Type Icons** - Visual file type indicators
-- **File Information** - Displays file size, type, and modification date
-- **Drag & Drop Upload** - Modern file upload interface
+- **Glassmorphism login page** with animated background
+- **Modern file explorer** with card-based grid layout, folder navigation, breadcrumbs, and file statistics
+- **Dark mode** — toggleable theme with `localStorage` persistence and `prefers-color-scheme` default
+- **Responsive mobile UI** — adaptive breakpoints, single-column on mobile, 44px touch targets
+- **Search & filter** — search bar with client-side live filtering and server-side recursive search
+- **File sorting** — sort by name, size, date, or type with clickable column headers
+- **File preview** — in-browser preview for images, text, PDF, video, and audio
+- **Thumbnail generation** — on-demand WebP thumbnails for image files via `sharp`
+- **Bulk operations** — multi-select checkboxes with bulk ZIP download and bulk delete
+- **Drag & drop** — upload files plus drag-and-drop file moving between folders
+- **QR code** — generate scannable QR codes for quick URL sharing between devices
+- **Text/clipboard sharing** — ephemeral in-memory text messages with 1-hour TTL
+- **Keyboard navigation** — Backspace/Alt+Up for parent directory
 
-### 📁 File Management
+### File Management
 
-- **Multi-level Directories** - Navigate through nested folder structures
-- **File Statistics** - Shows total files, folders, and combined size
-- **Empty Directory Handling** - Graceful handling of empty directories
-- **Large File Support** - Handles files up to 100MB per file efficiently
-- **Multiple File Upload** - Upload up to 10 files at once (drag & drop or browse)
-- **Automatic File Renaming** - Prevents conflicts with existing files
-- **Real-time Upload Progress** - Dual progress bars for detailed feedback
+- **Drag & drop uploads** — single, multiple, and folder uploads
+- **Chunked uploads** — large files uploaded in 5MB chunks with resume support
+- **Folder download** — download entire folders as streaming ZIP archives
+- **File operations** — rename, move, delete files and folders (admin only)
+- **Create folders** — new folder creation from the UI
+- **File versioning** — automatic backup to `.versions/` before overwrite (configurable retention)
+- **Shareable links** — time-limited, download-limited, optionally password-protected sharing tokens
+- **URL import** — import files from external URLs with SSRF protection
 
-## 🚀 Quick Start
+### Real-Time & Collaboration
+
+- **WebSocket live updates** — real-time connected client count, auto-refresh on file changes
+- **Activity log** — in-memory ring buffer of upload/download/delete events
+- **Device pairing** — 6-digit code pairing system for quick device connections
+- **LAN discovery** — mDNS/Zeroconf service advertising and peer discovery
+
+### API & Integration
+
+- **RESTful API** — JSON API at `/api/files/*`, `/api/download/*`, `/api/info`
+- **Email notifications** — send file links via email (requires SMTP config)
+- **Bidirectional sync** — file manifest comparison for sync workflows
+- **Bandwidth throttling** — configurable download speed limits
+- **Response compression** — gzip via `compression` middleware
+
+### Storage
+
+- **Dual storage** — `public/` for browsable files, `uploads/` for server-side uploaded files
+- **Disk usage & quota** — storage usage display with configurable quota limits
+- **Auto-expiring uploads** — configurable TTL for uploaded files
+- **No database** — filesystem is the only data store
+
+## Quick Start
 
 ### Prerequisites
 
-- Node.js (v12 or higher)
-- npm or yarn package manager
+- Node.js v18+
+- npm
 
 ### Installation
 
-1. **Clone the repository:**
-
-   ```bash
-   git clone https://github.com/MMALI3287/web_server.git
-   cd web_server
-   ```
-
-2. **Install dependencies:**
-
-   ```bash
-   npm install
-   ```
-
-3. **Create storage directories:**
-
-   ```bash
-   mkdir uploads
-   mkdir public
-   ```
-
-4. **Start the server:**
-
-   ```bash
-   node server.js
-   ```
-
-5. **Access the web interface:**
-   Open [http://localhost:3000](http://localhost:3000) in your browser
-
-## 📋 Dependencies
-
-```json
-{
-  "express": "^4.x.x",
-  "helmet": "^7.x.x",
-  "express-rate-limit": "^6.x.x",
-  "cors": "^2.x.x",
-  "multer": "^1.x.x"
-}
+```bash
+git clone https://github.com/MMALI3287/secure-file-server.git
+cd secure-file-server
+npm install
 ```
 
-## ⚙️ Configuration
+### TLS Certificates
 
-### Environment Variables
+On startup the server **auto-generates** a self-signed certificate in `certs/` that covers `localhost`, every local IP, and your public IP (via Subject Alternative Names). The certificate is regenerated automatically whenever your IPs change or it is within 30 days of expiry. OpenSSL must be installed and on your PATH.
 
-Create a `.env` file in the root directory to customize settings:
+To supply your own certificate instead, place `key.pem` and `cert.pem` in `certs/` — the auto-generator will leave them alone as long as they cover your current IPs.
 
-```env
-PORT=3000
-HOST=0.0.0.0
-ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+### Configuration
+
+Copy `.env.example` to `.env` and configure:
+
+```bash
+cp .env.example .env
 ```
+
+Generate password hashes for authentication:
+
+```bash
+node -e "require('bcrypt').hash('yourpassword', 10).then(h => console.log(h))"
+```
+
+Key environment variables:
+
+| Variable                           | Default        | Description                                      |
+| ---------------------------------- | -------------- | ------------------------------------------------ |
+| `PORT`                             | `3000`         | Server port                                      |
+| `HOST`                             | `0.0.0.0`      | Bind address                                     |
+| `NODE_ENV`                         | `development`  | Environment (`production` suppresses debug logs) |
+| `ADMIN_USER` / `ADMIN_PASS_HASH`   | —              | Admin credentials (bcrypt hash)                  |
+| `VIEWER_USER` / `VIEWER_PASS_HASH` | —              | Viewer credentials (bcrypt hash)                 |
+| `SESSION_SECRET`                   | auto-generated | HMAC key for session tokens                      |
+| `CSRF_SECRET`                      | auto-generated | HMAC key for CSRF tokens                         |
+| `MAX_FILE_SIZE`                    | `104857600`    | Upload size limit in bytes (100MB)               |
+| `RATE_LIMIT_MAX_REQUESTS`          | `100`          | General rate limit per 15min window              |
+
+See `.env.example` for the full list.
+
+### Start
+
+```bash
+npm start            # Start server (HTTPS)
+npm run dev          # Start with nodemon for auto-reload
+```
+
+Open `https://localhost:3000` in your browser. Default credentials: `admin`/`admin`, `viewer`/`viewer`.
+
+## Architecture
+
+```
+server.js                   — Entry point (~70 lines): wires all modules
+src/
+  config.js                 — PROJECT_ROOT constant
+  utils.js                  — log, escapeHtml, computeFileHash, formatFileSize, getFileIcon
+  security.js               — sanitizeFilename, sanitizePath, isValidFilename, isAllowedFileType, isSecurePath
+  auth.js                   — Session auth (HMAC-SHA256 tokens), sessionAuth middleware, requireRole
+  csrf.js                   — CSRF double-submit cookie config (csrf-csrf)
+  middleware.js              — Helmet, CSP nonces, rate limiters, CORS, cookie/body parsers, compression
+  upload.js                 — Multer config, magic-byte validation, upload routes (single/multi/folder/chunked)
+  startup.js                — TLS cert loading, port fallback, WebSocket server, signal handlers
+  discovery.js              — mDNS/Zeroconf LAN discovery via bonjour-service
+  encryption.js             — AES-256-GCM file encryption/decryption with PBKDF2 key derivation
+  routes/
+    login.js                — GET/POST /login, GET /logout
+    download.js             — /download/* with bandwidth throttling
+    share.js                — Shareable links with optional password protection, CSRF token endpoint
+    explorer.js             — Directory listing + full HTML/CSS/JS file explorer UI (dark mode, search, sort, bulk ops)
+    zip-download.js         — /download-folder/* streaming ZIP archives
+    preview.js              — /preview/*, /preview-check/* for in-browser file preview
+    text.js                 — POST/GET/DELETE /text for text/clipboard sharing
+    search.js               — GET /search recursive file search
+    file-ops.js             — POST /rename, DELETE /file/*, POST /mkdir
+    bulk-ops.js             — POST /download-batch, POST /delete-batch
+    activity.js             — GET /activity transfer history log
+    storage.js              — GET /stats disk usage, auto-expiring uploads
+    qr.js                   — GET /qr, GET /qr-data QR code generation
+    thumbnails.js           — GET /thumbnail/* on-demand image thumbnails
+    versioning.js           — GET /versions/* file version history
+    import-url.js           — POST /import-url with SSRF protection
+    api.js                  — GET /api/files/*, /api/download/*, /api/info
+    email.js                — POST /send-email via nodemailer
+    pairing.js              — POST /pair, POST /pair/join device pairing
+    sync.js                 — GET /sync/manifest, POST /sync/compare
+    settings.js             — GET/POST/DELETE /settings admin configuration
+public/                     — Browsable/downloadable files
+uploads/                    — Server-side uploaded files
+certs/                      — TLS certificate and private key
+```
+
+Route modules export `function(app, { deps })` and register their routes on the Express app. No templating engine — UI is generated via template literals.
+
+## API Endpoints
+
+All state-changing endpoints require authentication and a valid CSRF token.
+
+| Method | Path                       | Auth  | Description                        |
+| ------ | -------------------------- | ----- | ---------------------------------- |
+| `GET`  | `/login`                   | No    | Login page                         |
+| `POST` | `/login`                   | No    | Authenticate (username + password) |
+| `GET`  | `/logout`                  | No    | Clear session                      |
+| `GET`  | `/`                        | Yes   | File explorer (root directory)     |
+| `GET`  | `/{path}`                  | Yes   | Browse subdirectory                |
+| `GET`  | `/download/{filepath}`     | Yes   | Download a file (rate limited)     |
+| `GET`  | `/csrf-token`              | Yes   | Get CSRF token for uploads/shares  |
+| `POST` | `/upload`                  | Admin | Upload single file                 |
+| `POST` | `/upload-multiple`         | Admin | Upload multiple files (up to 10)   |
+| `POST` | `/upload-folder`           | Admin | Upload folder preserving structure |
+| `POST` | `/upload-chunked/init`     | Admin | Initialize chunked upload          |
+| `POST` | `/upload-chunked/chunk`    | Admin | Upload a chunk (5MB)               |
+| `POST` | `/upload-chunked/complete` | Admin | Finalize chunked upload            |
+| `POST` | `/share`                   | Admin | Create a shareable download link   |
+| `GET`  | `/s/:token`                | No    | Download via share token           |
 
 ### Allowed File Types
-
-The server supports the following file extensions by default:
 
 **Documents:** `.pdf`, `.txt`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`, `.pptx`
 **Images:** `.jpg`, `.jpeg`, `.png`, `.gif`, `.bmp`, `.webp`
 **Media:** `.mp4`, `.mp3`, `.wav`, `.avi`, `.mov`
 **Archives:** `.zip`, `.rar`, `.7z`, `.tar`, `.gz`
-**Web:** `.html`, `.css`, `.js`, `.json`, `.xml`, `.csv`
+**Data:** `.json`, `.xml`, `.csv`
 
-### Rate Limiting
+To add file types, update `isAllowedFileType()` in `src/security.js` and `extensionMimeMap`/`textExtensions` in `src/upload.js`.
 
-- **General requests:** 100 requests per 15 minutes per IP
-- **Downloads:** 20 downloads per 15 minutes per IP
-- **Uploads:** 10 uploads per 15 minutes per IP (100MB max file size)
+## Dependencies
 
-## 🏗️ Architecture
+| Package                    | Purpose                                |
+| -------------------------- | -------------------------------------- |
+| `express` 5.1.0            | Web framework                          |
+| `helmet` 8.1.0             | Security headers                       |
+| `express-rate-limit` 7.5.0 | Request rate limiting                  |
+| `cors` 2.8.5               | Cross-origin resource sharing          |
+| `multer` 2.0.1             | Multipart file upload handling         |
+| `bcrypt` 6.0.0             | Password hashing                       |
+| `cookie-parser` 1.4.7      | Cookie parsing                         |
+| `csrf-csrf` 4.0.3          | CSRF protection (double-submit cookie) |
+| `file-type` 21.3.0         | Magic-byte file validation             |
+| `dotenv` 17.3.1            | Environment variable loading           |
 
-### Dual Storage System
+## Troubleshooting
 
-The server implements a dual storage architecture for enhanced security:
+**Server won't start** — Check if the port is in use. The server automatically tries fallback ports (3080, 5000, 8080). Ensure `certs/cert.pem` and `certs/key.pem` exist.
 
-- **Public Storage (`/public`)**: Files visible to clients for browsing and downloading
-- **Server Storage (`/uploads`)**: Files uploaded by users, stored server-side for review
+**Login not working** — Verify `ADMIN_USER`/`ADMIN_PASS_HASH` are set in `.env`. Generate a fresh hash with `node -e "require('bcrypt').hash('password', 10).then(h => console.log(h))"`.
 
-This separation ensures that uploaded content doesn't immediately become public and can be reviewed before being moved to the public area.
+**Upload rejected** — Check file extension is in the allowed list, file size is under `MAX_FILE_SIZE`, and you're logged in as admin with a valid CSRF token.
 
-## 🛡️ Security Measures
+**Certificate errors in browser** — Expected with self-signed certs. Click through the warning or add the cert to your trust store.
 
-### Path Security
+## License
 
-- All paths are sanitized to remove dangerous characters
-- Directory traversal attempts (e.g., `../`) are blocked
-- File access is restricted to the `uploads` directory only
+MIT — see [LICENSE](LICENSE).
 
-### File Validation
+## Contributing
 
-- Only whitelisted file types are accessible
-- File existence and permissions are verified before serving
-- Maximum filename length enforcement (500 characters)
-- Client-side and server-side upload validation
-- Automatic file conflict resolution (renamed if duplicate)
-
-### HTTP Security
-
-- Security headers via Helmet.js
-- CORS protection with configurable origins
-- Content-Type validation
-- XSS protection headers
-
-## 📖 API Endpoints
-
-### GET `/`
-
-- **Description:** Main interface for browsing the root directory
-- **Response:** HTML page with file/folder listing from public storage
-
-### GET `/{path}`
-
-- **Description:** Browse any subdirectory in public storage
-- **Parameters:** `path` - Relative path to directory
-- **Response:** HTML page with file/folder listing for the specified path
-
-### GET `/download/{filepath}`
-
-- **Description:** Download a file from public storage
-- **Parameters:** `filepath` - Relative path to file
-- **Response:** File download with appropriate headers
-- **Rate Limited:** Yes (20 requests per 15 minutes)
-
-### POST `/upload`
-
-- **Description:** Upload a single file to server storage
-- **Parameters:**
-  - `file` - File to upload (multipart/form-data)
-  - `uploadPath` - Target directory path (optional)
-- **Response:** JSON with upload status and file information
-- **Rate Limited:** Yes (10 requests per 15 minutes)
-- **File Size Limit:** 100MB per file
-
-### POST `/upload-multiple`
-
-- **Description:** Upload multiple files at once to server storage
-- **Parameters:**
-  - `files` - Array of files to upload (multipart/form-data)
-  - `uploadPath` - Target directory path (optional)
-- **Response:** JSON with upload status and files information
-- **Rate Limited:** Yes (10 requests per 15 minutes)
-- **File Limits:** Up to 10 files, 100MB per file
-
-### GET `/test-download`
-
-- **Description:** Test endpoint to verify file access
-- **Response:** JSON with file information
-
-## 🔧 Development
-
-### Project Structure
-
-```text
-web_server/
-├── server.js          # Main server file
-├── package.json       # Dependencies and scripts
-├── public/            # Public file storage (client accessible)
-├── uploads/           # Server-side upload storage
-├── .env              # Environment variables
-├── .gitignore        # Git ignore rules
-└── README.md         # This file
-```
-
-### Adding New File Types
-
-To add support for new file types, edit the `allowedExtensions` array in `server.js`:
-
-```javascript
-const allowedExtensions = [
-  // ... existing extensions
-  ".newext", // Add your new extension here
-];
-```
-
-### Customizing Rate Limits
-
-Modify the rate limiting configuration in `server.js`:
-
-```javascript
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // Time window
-  max: 100, // Max requests per window
-  message: "Rate limit exceeded",
-});
-```
-
-## 🚨 Important Security Notes
-
-1. **HTTP vs HTTPS:** The server is configured for HTTP to avoid mixed content issues. For production, consider implementing proper HTTPS with valid certificates.
-
-2. **File Upload:** The server now includes secure file upload functionality with dual storage architecture. Uploaded files are stored server-side for review before being made public.
-
-3. **Production Deployment:**
-
-   - Use a reverse proxy (nginx/Apache) in production
-   - Implement proper logging and monitoring
-   - Consider additional authentication/authorization layers
-
-4. **File Permissions:** Ensure both the `public` and `uploads` directories have appropriate permissions and are not executable.
-
-5. **Upload Review Process:** Implement a process to review uploaded files in the `uploads` directory before moving them to `public` for client access.
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-**Server won't start:**
-
-- Check if port 3000 is already in use
-- Verify Node.js version compatibility
-- Ensure all dependencies are installed
-
-**Files not accessible:**
-
-- Verify file exists in public directory (not uploads)
-- Check file permissions
-- Ensure file type is in allowed extensions list
-
-**Upload failures:**
-
-- Check file size (max 100MB per file)
-- Verify file type is allowed
-- Ensure uploads directory exists and is writable
-- Check rate limits
-- For multiple files: ensure not exceeding 10 files limit
-
-**Network errors on upload:**
-
-- CORS issues: The server now allows all origins by default for development
-- Try accessing via `http://localhost:3000` instead of `http://127.0.0.1:3000`
-- Disable browser extensions that might block uploads
-- Check browser console for specific error messages
-
-**Rate limit errors:**
-
-- Wait for the rate limit window to reset
-- Adjust rate limit settings if needed
-
-**Path traversal blocked:**
-
-- This is expected security behavior
-- Ensure file paths don't contain `../` sequences
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 🔄 Version History
-
-- **v1.0.0** - Initial release with basic file serving
-- **v2.0.0** - Added folder navigation and enhanced security
-- **v2.1.0** - Fixed path-to-regexp routing issues and improved UI
-- **v3.0.0** - Added secure file upload with dual storage architecture
-  - Implemented multer-based file upload system
-  - Added dual progress bars for upload tracking
-  - Separated public and server-side storage
-  - Enhanced security with upload rate limiting
-  - Added drag & drop file upload interface
-  - Implemented automatic file conflict resolution
-- **v3.1.0** - Added multiple file upload support
-  - Upload up to 10 files at once
-  - Enhanced UI for multi-file selection
-  - Improved progress tracking for multiple files
-  - Separate endpoints for single and multiple file uploads
-  - Fixed CORS configuration for better compatibility
-
-## 📞 Support
-
-If you encounter any issues or have questions:
-
-1. Check the troubleshooting section above
-2. Review the server logs for error messages
-3. Open an issue on GitHub with detailed information
-
----
-
-**⚠️ Disclaimer:** This software is provided as-is. Always review and test security measures before deploying in production environments.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
