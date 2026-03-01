@@ -53,6 +53,7 @@ module.exports = function registerImportUrlRoutes(app, { auth, csrf }) {
         /^10\./,
         /^172\.(1[6-9]|2\d|3[01])\./,
         /^192\.168\./,
+        /^169\.254\./,
         /^0\./,
         /^::1$/,
         /^fe80:/i,
@@ -100,21 +101,17 @@ module.exports = function registerImportUrlRoutes(app, { auth, csrf }) {
           }
 
           if (response.statusCode !== 200) {
-            return res
-              .status(400)
-              .json({
-                error: `Remote server returned status ${response.statusCode}`,
-              });
+            return res.status(400).json({
+              error: `Remote server returned status ${response.statusCode}`,
+            });
           }
 
           const contentLength = Number(response.headers["content-length"]);
           if (contentLength > MAX_IMPORT_SIZE) {
             response.destroy();
-            return res
-              .status(400)
-              .json({
-                error: `File too large (max ${Math.round(MAX_IMPORT_SIZE / 1024 / 1024)} MB)`,
-              });
+            return res.status(400).json({
+              error: `File too large (max ${Math.round(MAX_IMPORT_SIZE / 1024 / 1024)} MB)`,
+            });
           }
 
           let downloadedSize = 0;

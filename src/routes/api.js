@@ -12,10 +12,12 @@ const {
 
 const publicDir = path.join(PROJECT_ROOT, "public");
 
-module.exports = function registerApiRoutes(app, { downloadLimiter }) {
+module.exports = function registerApiRoutes(app, { auth, downloadLimiter }) {
+  const { requireRole } = auth;
+
   // List directory contents as JSON
-  app.get("/api/files", apiListDir);
-  app.get("/api/files/{*path}", apiListDir);
+  app.get("/api/files", requireRole("viewer"), apiListDir);
+  app.get("/api/files/{*path}", requireRole("viewer"), apiListDir);
 
   async function apiListDir(req, res) {
     const rawPath = Array.isArray(req.params.path)
@@ -89,37 +91,42 @@ module.exports = function registerApiRoutes(app, { downloadLimiter }) {
   }
 
   // Download a file via API
-  app.get("/api/download/{*path}", downloadLimiter, (req, res) => {
-    const rawPath = Array.isArray(req.params.path)
-      ? req.params.path.join("/")
-      : req.params.path || "";
-    const requestedPath = decodeURIComponent(rawPath);
-    const sanitized = sanitizePath(requestedPath);
-    const fullPath = path.join(publicDir, sanitized);
+  app.get(
+    "/api/download/{*path}",
+    requireRole("viewer"),
+    downloadLimiter,
+    (req, res) => {
+      const rawPath = Array.isArray(req.params.path)
+        ? req.params.path.join("/")
+        : req.params.path || "";
+      const requestedPath = decodeURIComponent(rawPath);
+      const sanitized = sanitizePath(requestedPath);
+      const fullPath = path.join(publicDir, sanitized);
 
-    if (!isSecurePath(sanitized, publicDir)) {
-      return res.status(403).json({ error: "Access denied" });
-    }
-
-    try {
-      const stats = fs.statSync(fullPath);
-      if (!stats.isFile()) {
-        return res.status(400).json({ error: "Not a file" });
+      if (!isSecurePath(sanitized, publicDir)) {
+        return res.status(403).json({ error: "Access denied" });
       }
 
-      const filename = path.basename(sanitized);
-      const safeName = filename.replace(/["\r\n]/g, "");
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename="${safeName}"`,
-      );
-      res.setHeader("Content-Length", stats.size);
-      res.setHeader("X-Content-Type-Options", "nosniff");
-      fs.createReadStream(fullPath).pipe(res);
-    } catch {
-      res.status(404).json({ error: "File not found" });
-    }
-  });
+      try {
+        const stats = fs.statSync(fullPath);
+        if (!stats.isFile()) {
+          return res.status(400).json({ error: "Not a file" });
+        }
+
+        const filename = path.basename(sanitized);
+        const safeName = filename.replace(/["\r\n]/g, "");
+        res.setHeader(
+          "Content-Disposition",
+          `attachment; filename="${safeName}"`,
+        );
+        res.setHeader("Content-Length", stats.size);
+        res.setHeader("X-Content-Type-Options", "nosniff");
+        fs.createReadStream(fullPath).pipe(res);
+      } catch {
+        res.status(404).json({ error: "File not found" });
+      }
+    },
+  );
 
   // Server info endpoint
   app.get("/api/info", (req, res) => {

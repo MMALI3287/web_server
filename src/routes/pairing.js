@@ -20,9 +20,11 @@ function generatePairingCode() {
   return String(crypto.randomInt(100000, 999999));
 }
 
-module.exports = function registerPairingRoutes(app) {
+module.exports = function registerPairingRoutes(app, { auth, authLimiter }) {
+  const { requireRole } = auth;
+
   // Create a new pairing session
-  app.post("/pair", (req, res) => {
+  app.post("/pair", requireRole("admin"), (req, res) => {
     const code = generatePairingCode();
     pairingSessions.set(code, {
       createdAt: Date.now(),
@@ -42,7 +44,7 @@ module.exports = function registerPairingRoutes(app) {
   });
 
   // Join an existing pairing session
-  app.post("/pair/join", (req, res) => {
+  app.post("/pair/join", authLimiter, (req, res) => {
     const { code } = req.body;
     if (!code || typeof code !== "string") {
       return res.status(400).json({ error: "code is required" });

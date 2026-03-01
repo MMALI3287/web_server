@@ -13,8 +13,10 @@ const publicDir = path.join(PROJECT_ROOT, "public");
 const MAX_SEARCH_RESULTS = 200;
 const MAX_SEARCH_DEPTH = 10;
 
-module.exports = function registerSearchRoutes(app) {
-  app.get("/search", async (req, res) => {
+module.exports = function registerSearchRoutes(app, { auth }) {
+  const { requireRole } = auth;
+
+  app.get("/search", requireRole("viewer"), async (req, res) => {
     const query = (req.query.q || "").trim().toLowerCase();
     if (!query) {
       return res.status(400).json({ error: "Search query (q) is required" });

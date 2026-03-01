@@ -42,6 +42,15 @@ module.exports = function setupMiddleware(app) {
     })(req, res, next);
   });
 
+  // Permissions-Policy: restrict access to sensitive browser APIs
+  app.use((req, res, next) => {
+    res.setHeader(
+      "Permissions-Policy",
+      "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+    );
+    next();
+  });
+
   // Trust first proxy hop for rate limiting behind reverse proxies
   app.set("trust proxy", process.env.TRUST_PROXY === "true" ? 1 : false);
 
@@ -73,6 +82,15 @@ module.exports = function setupMiddleware(app) {
     legacyHeaders: false,
   });
 
+  // Strict limiter for auth endpoints (login, pairing, share password)
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    message: "Too many attempts, please try again later.",
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
   app.use(limiter);
 
   // CORS configuration
@@ -92,5 +110,5 @@ module.exports = function setupMiddleware(app) {
   app.use(express.json({ limit: "1mb" }));
   app.use(express.urlencoded({ extended: false, limit: "1mb" }));
 
-  return { downloadLimiter, uploadLimiter };
+  return { downloadLimiter, uploadLimiter, authLimiter };
 };

@@ -1,6 +1,6 @@
 // TODO #27: Email Notification on Transfer
 const nodemailer = require("nodemailer");
-const { log } = require("../utils");
+const { log, escapeHtml } = require("../utils");
 
 // Only create transporter if SMTP is configured
 let transporter = null;
@@ -49,8 +49,8 @@ module.exports = function registerEmailRoutes(app, { auth, csrf }) {
           <h2 style="margin: 0;">📁 File Shared With You</h2>
         </div>
         <div style="padding: 20px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 8px 8px;">
-          ${filename ? `<p><strong>File:</strong> ${filename}</p>` : ""}
-          <p><a href="${shareUrl}" style="display: inline-block; background: #4caf50; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">Download File</a></p>
+          ${filename ? `<p><strong>File:</strong> ${escapeHtml(filename)}</p>` : ""}
+          <p><a href="${escapeHtml(shareUrl)}" style="display: inline-block; background: #4caf50; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">Download File</a></p>
           <p style="color: #666; font-size: 0.9rem;">This link may expire. Download promptly.</p>
         </div>
       </div>

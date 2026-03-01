@@ -49,6 +49,10 @@ function getFileIcon(filename) {
   const iconMap = {
     ".pdf": "📄",
     ".zip": "🗜️",
+    ".rar": "🗜️",
+    ".7z": "🗜️",
+    ".tar": "🗜️",
+    ".gz": "🗜️",
     ".txt": "📝",
     ".doc": "📄",
     ".docx": "📄",
@@ -60,7 +64,12 @@ function getFileIcon(filename) {
     ".jpeg": "🖼️",
     ".png": "🖼️",
     ".gif": "🖼️",
+    ".bmp": "🖼️",
+    ".webp": "🖼️",
+    ".svg": "🖼️",
     ".mp4": "🎥",
+    ".avi": "🎥",
+    ".mov": "🎥",
     ".mp3": "🎵",
     ".wav": "🎵",
     ".exe": "⚙️",
@@ -68,8 +77,11 @@ function getFileIcon(filename) {
     ".html": "🌐",
     ".css": "🎨",
     ".json": "📋",
+    ".xml": "📋",
+    ".csv": "📊",
+    ".md": "📝",
   };
-  return iconMap[ext] || "📁";
+  return iconMap[ext] || "�";
 }
 
 module.exports = {

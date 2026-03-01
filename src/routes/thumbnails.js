@@ -1,6 +1,7 @@
 // TODO #31: Thumbnail Generation for Images
 const path = require("path");
 const fs = require("fs");
+const crypto = require("crypto");
 const sharp = require("sharp");
 const { PROJECT_ROOT } = require("../config");
 const { log } = require("../utils");
@@ -23,7 +24,7 @@ const imageExtensions = new Set([
 ]);
 
 function getThumbnailPath(relativePath) {
-  const hash = relativePath.replace(/[/\\:]/g, "_");
+  const hash = crypto.createHash("sha256").update(relativePath).digest("hex");
   return path.join(thumbnailDir, hash + ".webp");
 }
 

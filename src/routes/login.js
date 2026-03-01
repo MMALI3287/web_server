@@ -1,7 +1,7 @@
 const bcrypt = require("bcrypt");
 const express = require("express");
 
-module.exports = function registerLoginRoutes(app, { auth }) {
+module.exports = function registerLoginRoutes(app, { auth, authLimiter }) {
   const { users, verifySessionToken, createSessionToken } = auth;
 
   // --- Login Page ---
@@ -351,6 +351,7 @@ module.exports = function registerLoginRoutes(app, { auth }) {
   // --- Login POST ---
   app.post(
     "/login",
+    authLimiter,
     express.urlencoded({ extended: false, limit: "1kb" }),
     async (req, res) => {
       const { username, password } = req.body;

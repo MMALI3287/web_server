@@ -15,9 +15,11 @@ function recordActivity(action, details) {
   }
 }
 
-module.exports = function registerActivityRoutes(app) {
+module.exports = function registerActivityRoutes(app, { auth }) {
+  const { requireRole } = auth;
+
   // Get recent activity
-  app.get("/activity", (req, res) => {
+  app.get("/activity", requireRole("admin"), (req, res) => {
     const limit = Math.min(Number(req.query.limit) || 50, MAX_ACTIVITY_ENTRIES);
     const recent = activityLog.slice(-limit).reverse();
     res.json({ entries: recent, total: activityLog.length });

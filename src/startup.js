@@ -6,6 +6,8 @@ const { WebSocketServer } = require("ws");
 const { PROJECT_ROOT } = require("./config");
 const { log } = require("./utils");
 const { ensureCerts, trustCA } = require("./cert-gen");
+const { verifySessionToken, authEnabled } = require("./auth");
+const cookieParse = require("cookie");
 
 function getLocalIp() {
   const interfaces = os.networkInterfaces();
@@ -117,6 +119,16 @@ module.exports = function startServer(app) {
     const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
 
     wss.on("connection", (ws, req) => {
+      // Authenticate WebSocket connections using session cookie
+      if (authEnabled) {
+        const cookies = cookieParse.parse(req.headers.cookie || "");
+        const token = cookies.__session;
+        if (!token || !verifySessionToken(token)) {
+          ws.close(4401, "Authentication required");
+          return;
+        }
+      }
+
       wsClients.add(ws);
       log.info(`WebSocket connected (${wsClients.size} clients)`);
 

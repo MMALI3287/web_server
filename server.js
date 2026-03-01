@@ -4,7 +4,8 @@ const multer = require("multer");
 const app = express();
 
 // Setup global middleware (helmet, rate limiters, CORS, parsers, compression)
-const { downloadLimiter, uploadLimiter } = require("./src/middleware")(app);
+const { downloadLimiter, uploadLimiter, authLimiter } =
+  require("./src/middleware")(app);
 
 // Authentication
 const auth = require("./src/auth");
@@ -14,25 +15,25 @@ app.use(auth.sessionAuth);
 const csrf = require("./src/csrf");
 
 // --- Routes ---
-require("./src/routes/login")(app, { auth });
+require("./src/routes/login")(app, { auth, authLimiter });
 require("./src/routes/download")(app, { downloadLimiter });
-require("./src/routes/share")(app, { auth, csrf });
+require("./src/routes/share")(app, { auth, csrf, authLimiter });
 require("./src/routes/zip-download")(app, { downloadLimiter });
 require("./src/routes/preview")(app, { downloadLimiter });
-require("./src/routes/search")(app);
+require("./src/routes/search")(app, { auth });
 require("./src/routes/text")(app, { auth, csrf });
 require("./src/routes/file-ops")(app, { auth, csrf });
 require("./src/routes/bulk-ops")(app, { auth, csrf, downloadLimiter });
-require("./src/routes/activity")(app);
+require("./src/routes/activity")(app, { auth });
 require("./src/routes/storage")(app);
 require("./src/routes/qr")(app);
 require("./src/routes/thumbnails")(app);
 require("./src/routes/versioning")(app);
-require("./src/routes/pairing")(app);
-require("./src/routes/api")(app, { downloadLimiter });
+require("./src/routes/pairing")(app, { auth, authLimiter });
+require("./src/routes/api")(app, { auth, downloadLimiter });
 require("./src/routes/email")(app, { auth, csrf });
 require("./src/routes/import-url")(app, { auth, csrf });
-require("./src/routes/sync")(app, { csrf });
+require("./src/routes/sync")(app, { auth, csrf });
 require("./src/routes/settings")(app, { auth, csrf });
 require("./src/routes/webdav")(app);
 require("./src/upload")(app, { auth, csrf, uploadLimiter });

@@ -50,11 +50,12 @@ async function buildManifest(dir, relativeTo, maxDepth = 5) {
   return manifest;
 }
 
-module.exports = function registerSyncRoutes(app, { csrf }) {
+module.exports = function registerSyncRoutes(app, { auth, csrf }) {
+  const { requireRole } = auth;
   const { doubleCsrfProtection } = csrf;
 
   // Get server manifest (list of all files with metadata)
-  app.get("/sync/manifest", async (req, res) => {
+  app.get("/sync/manifest", requireRole("admin"), async (req, res) => {
     try {
       const manifest = await buildManifest(publicDir, publicDir);
       res.json({ manifest, generatedAt: new Date().toISOString() });
@@ -65,66 +66,71 @@ module.exports = function registerSyncRoutes(app, { csrf }) {
   });
 
   // Compare client manifest with server manifest
-  app.post("/sync/compare", doubleCsrfProtection, async (req, res) => {
-    const { clientManifest } = req.body;
-    if (!clientManifest || typeof clientManifest !== "object") {
-      return res.status(400).json({ error: "clientManifest is required" });
-    }
-
-    try {
-      const serverManifest = await buildManifest(publicDir, publicDir);
-
-      const toDownload = []; // Files that are newer on server or missing on client
-      const toUpload = []; // Files that are newer on client or missing on server
-      const inSync = []; // Files that are identical
-
-      // Check server files
-      for (const [filePath, serverInfo] of Object.entries(serverManifest)) {
-        const clientInfo = clientManifest[filePath];
-        if (!clientInfo) {
-          toDownload.push({
-            path: filePath,
-            reason: "missing_on_client",
-            ...serverInfo,
-          });
-        } else if (serverInfo.mtimeMs > clientInfo.mtimeMs) {
-          toDownload.push({
-            path: filePath,
-            reason: "newer_on_server",
-            ...serverInfo,
-          });
-        } else if (serverInfo.size === clientInfo.size) {
-          inSync.push(filePath);
-        }
+  app.post(
+    "/sync/compare",
+    requireRole("admin"),
+    doubleCsrfProtection,
+    async (req, res) => {
+      const { clientManifest } = req.body;
+      if (!clientManifest || typeof clientManifest !== "object") {
+        return res.status(400).json({ error: "clientManifest is required" });
       }
 
-      // Check client files not on server
-      for (const [filePath, clientInfo] of Object.entries(clientManifest)) {
-        if (!serverManifest[filePath]) {
-          toUpload.push({
-            path: filePath,
-            reason: "missing_on_server",
-            ...clientInfo,
-          });
-        } else if (clientInfo.mtimeMs > serverManifest[filePath].mtimeMs) {
-          toUpload.push({
-            path: filePath,
-            reason: "newer_on_client",
-            ...clientInfo,
-          });
-        }
-      }
+      try {
+        const serverManifest = await buildManifest(publicDir, publicDir);
 
-      res.json({
-        toDownload,
-        toUpload,
-        inSync: inSync.length,
-        totalServer: Object.keys(serverManifest).length,
-        totalClient: Object.keys(clientManifest).length,
-      });
-    } catch (err) {
-      log.error("Sync compare error:", err.message);
-      res.status(500).json({ error: "Failed to compare manifests" });
-    }
-  });
+        const toDownload = []; // Files that are newer on server or missing on client
+        const toUpload = []; // Files that are newer on client or missing on server
+        const inSync = []; // Files that are identical
+
+        // Check server files
+        for (const [filePath, serverInfo] of Object.entries(serverManifest)) {
+          const clientInfo = clientManifest[filePath];
+          if (!clientInfo) {
+            toDownload.push({
+              path: filePath,
+              reason: "missing_on_client",
+              ...serverInfo,
+            });
+          } else if (serverInfo.mtimeMs > clientInfo.mtimeMs) {
+            toDownload.push({
+              path: filePath,
+              reason: "newer_on_server",
+              ...serverInfo,
+            });
+          } else if (serverInfo.size === clientInfo.size) {
+            inSync.push(filePath);
+          }
+        }
+
+        // Check client files not on server
+        for (const [filePath, clientInfo] of Object.entries(clientManifest)) {
+          if (!serverManifest[filePath]) {
+            toUpload.push({
+              path: filePath,
+              reason: "missing_on_server",
+              ...clientInfo,
+            });
+          } else if (clientInfo.mtimeMs > serverManifest[filePath].mtimeMs) {
+            toUpload.push({
+              path: filePath,
+              reason: "newer_on_client",
+              ...clientInfo,
+            });
+          }
+        }
+
+        res.json({
+          toDownload,
+          toUpload,
+          inSync: inSync.length,
+          totalServer: Object.keys(serverManifest).length,
+          totalClient: Object.keys(clientManifest).length,
+        });
+      } catch (err) {
+        log.error("Sync compare error:", err.message);
+        res.status(500).json({ error: "Failed to compare manifests" });
+      }
+    },
+  );
 };

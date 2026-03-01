@@ -21,10 +21,11 @@ setInterval(
 );
 
 module.exports = function registerTextRoutes(app, { auth, csrf }) {
+  const { requireRole } = auth;
   const { doubleCsrfProtection } = csrf;
 
   // Post a text message
-  app.post("/text", doubleCsrfProtection, (req, res) => {
+  app.post("/text", requireRole("viewer"), doubleCsrfProtection, (req, res) => {
     const { text } = req.body;
     if (!text || typeof text !== "string") {
       return res.status(400).json({ error: "text is required" });
@@ -63,12 +64,17 @@ module.exports = function registerTextRoutes(app, { auth, csrf }) {
   });
 
   // Delete a text message
-  app.delete("/text/:id", doubleCsrfProtection, (req, res) => {
-    const idx = textMessages.findIndex((m) => m.id === req.params.id);
-    if (idx === -1) {
-      return res.status(404).json({ error: "Message not found" });
-    }
-    textMessages.splice(idx, 1);
-    res.json({ success: true });
-  });
+  app.delete(
+    "/text/:id",
+    requireRole("admin"),
+    doubleCsrfProtection,
+    (req, res) => {
+      const idx = textMessages.findIndex((m) => m.id === req.params.id);
+      if (idx === -1) {
+        return res.status(404).json({ error: "Message not found" });
+      }
+      textMessages.splice(idx, 1);
+      res.json({ success: true });
+    },
+  );
 };

@@ -27,7 +27,10 @@ setInterval(
   10 * 60 * 1000,
 );
 
-module.exports = function registerShareRoutes(app, { auth, csrf }) {
+module.exports = function registerShareRoutes(
+  app,
+  { auth, csrf, authLimiter },
+) {
   const { requireRole } = auth;
   const { generateCsrfToken, doubleCsrfProtection } = csrf;
 
@@ -125,7 +128,10 @@ module.exports = function registerShareRoutes(app, { auth, csrf }) {
     }
 
     // If password protected and not yet verified, show password form
-    if (link.passwordHash && !req.query.verified) {
+    if (
+      link.passwordHash &&
+      req.cookies[`__share_${req.params.token}`] !== "1"
+    ) {
       const nonce = res.locals.cspNonce;
       const filename = path.basename(link.filePath);
       return res.send(`<!DOCTYPE html>
@@ -146,7 +152,7 @@ button:hover{opacity:0.9}.error{color:#f44336;margin-top:10px;display:none}</sty
 <div class="error" id="err"></div></form>
 <script nonce="${nonce}">document.getElementById('f').addEventListener('submit',function(e){e.preventDefault();
 fetch('/s/${escapeHtml(req.params.token)}/verify',{method:'POST',headers:{'Content-Type':'application/json'},
-body:JSON.stringify({password:this.password.value})}).then(function(r){if(r.ok){window.location.href='/s/${escapeHtml(req.params.token)}?verified=1'}else{return r.json().then(function(d){var err=document.getElementById('err');err.textContent=d.error;err.style.display='block'})}}).catch(function(){var err=document.getElementById('err');err.textContent='Network error';err.style.display='block'})});</script>
+body:JSON.stringify({password:this.password.value})}).then(function(r){if(r.ok){window.location.href='/s/${escapeHtml(req.params.token)}'}else{return r.json().then(function(d){var err=document.getElementById('err');err.textContent=d.error;err.style.display='block'})}}).catch(function(){var err=document.getElementById('err');err.textContent='Network error';err.style.display='block'})});</script>
 </div></body></html>`);
     }
 
@@ -181,7 +187,7 @@ body:JSON.stringify({password:this.password.value})}).then(function(r){if(r.ok){
   });
 
   // Verify password for protected share links
-  app.post("/s/:token/verify", async (req, res) => {
+  app.post("/s/:token/verify", authLimiter, async (req, res) => {
     const link = shareLinks.get(req.params.token);
     if (!link) {
       return res.status(404).json({ error: "Link not found" });
@@ -200,7 +206,14 @@ body:JSON.stringify({password:this.password.value})}).then(function(r){if(r.ok){
       if (!valid) {
         return res.status(403).json({ error: "Incorrect password" });
       }
-      // Temporarily mark as verified (using a session-like approach)
+      // Set a secure httpOnly cookie to mark this share link as verified
+      res.cookie(`__share_${req.params.token}`, "1", {
+        httpOnly: true,
+        sameSite: "strict",
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 10 * 60 * 1000, // 10 minutes
+        path: `/s/${req.params.token}`,
+      });
       res.json({ success: true });
     } catch {
       res.status(500).json({ error: "Verification failed" });

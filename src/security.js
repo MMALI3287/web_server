@@ -21,12 +21,12 @@ function sanitizePath(requestedPath) {
 }
 
 function isValidFilename(filename) {
-  // Allow letters, numbers, dots, hyphens, underscores, spaces, parentheses,
-  // brackets, and forward slashes for paths
-  const validPattern = /^[a-zA-Z0-9._\-\s\/\(\)\[\]]+$/;
-  return (
-    validPattern.test(filename) && filename.length <= 500 && filename.length > 0
-  );
+  // Block path traversal, control characters, and OS-reserved characters
+  // Allow Unicode letters/numbers (CJK, Arabic, etc.) and common punctuation
+  if (!filename || filename.length === 0 || filename.length > 500) return false;
+  if (/[\x00-\x1f<>:"|?*\\]/.test(filename)) return false;
+  if (/\.\./.test(filename)) return false;
+  return true;
 }
 
 const defaultAllowedExtensions = [
@@ -59,11 +59,6 @@ const defaultAllowedExtensions = [
   ".csv",
   ".svg",
   ".md",
-  ".bat",
-  ".sh",
-  ".exe",
-  ".msi",
-  ".iso",
   ".html",
   ".css",
   ".js",
@@ -95,7 +90,19 @@ function isAllowedFileType(filename) {
 function isSecurePath(requestedPath, baseDir) {
   const resolvedPath = path.resolve(baseDir, requestedPath);
   const resolvedBaseDir = path.resolve(baseDir);
-  return resolvedPath.startsWith(resolvedBaseDir);
+  if (!resolvedPath.startsWith(resolvedBaseDir)) return false;
+
+  // Resolve symlinks to prevent symlink escape attacks
+  try {
+    const fs = require("fs");
+    if (fs.existsSync(resolvedPath)) {
+      const realPath = fs.realpathSync(resolvedPath);
+      if (!realPath.startsWith(resolvedBaseDir)) return false;
+    }
+  } catch {
+    return false;
+  }
+  return true;
 }
 
 module.exports = {
